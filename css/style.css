@@ -1,0 +1,315 @@
+/* 
+ * ГрафМастер СПО — Neon Cyberpunk & Dark Mode Style
+ * Неоновая эстетика, глубокая ночная тема и шелковистые плавные анимации
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Постоянная ночная неоновая палитра */
+  --bg-page: #060913;
+  --bg-card: #0d1322;
+  --bg-card-hover: #121a2f;
+  --bg-subtle: #151e34;
+  --border-neon: rgba(0, 240, 255, 0.22);
+  --border-subtle: #18233a;
+
+  /* Неоновые акценты */
+  --neon-cyan: #00f0ff;
+  --neon-cyan-glow: rgba(0, 240, 255, 0.4);
+  --neon-pink: #f43f5e;
+  --neon-pink-glow: rgba(244, 63, 94, 0.4);
+  --neon-purple: #c084fc;
+  --neon-purple-glow: rgba(192, 132, 252, 0.4);
+  --neon-emerald: #10e897;
+  --neon-emerald-glow: rgba(16, 232, 151, 0.4);
+
+  /* Типографика */
+  --text-main: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-faint: #64748b;
+  --text-cyan: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  min-height: 100vh;
+  margin: 0;
+  line-height: 1.5;
+  background-image: 
+    radial-gradient(ellipse at top, rgba(0, 240, 255, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at bottom, rgba(192, 132, 252, 0.04) 0%, transparent 60%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==================== НЕОНОВЫЕ ЭФФЕКТЫ ==================== */
+.neon-glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.2), inset 0 0 10px rgba(0, 240, 255, 0.05);
+}
+
+.neon-border-cyan {
+  border: 1px solid rgba(0, 240, 255, 0.35);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+}
+
+.neon-text-pink {
+  color: #ff3366;
+  text-shadow: 0 0 12px rgba(255, 51, 102, 0.5);
+}
+
+.neon-text-emerald {
+  color: #10e897;
+  text-shadow: 0 0 12px rgba(16, 232, 151, 0.5);
+}
+
+/* ==================== КАРТОЧКИ ==================== */
+.card-neon {
+  background-color: rgba(13, 19, 34, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-neon:hover {
+  border-color: rgba(0, 240, 255, 0.38);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 240, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+/* ==================== НАВИГАЦИОННЫЕ ТАБЫ ==================== */
+.nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 8px;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-tab-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab-btn.active-tab {
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  font-weight: 600;
+}
+
+/* ==================== ПИЛЛЫ И КНОПКИ ==================== */
+.preset-pill {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(21, 30, 52, 0.6);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-pill:hover {
+  border-color: #00f0ff;
+  color: #00f0ff;
+  background-color: rgba(0, 240, 255, 0.1);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+}
+
+.variant-pill-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(21, 30, 52, 0.6);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.variant-pill-btn:hover {
+  border-color: #00f0ff;
+  color: #ffffff;
+}
+
+.variant-pill-btn.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(192, 132, 252, 0.25) 100%);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+  font-weight: 600;
+}
+
+/* Неоновые кнопки */
+.btn-neon-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #00f0ff 100%);
+  color: #040914;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-neon-primary:hover {
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-neon-purple {
+  background: linear-gradient(135deg, #9333ea 0%, #c084fc 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 0 18px rgba(192, 132, 252, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-neon-purple:hover {
+  box-shadow: 0 0 25px rgba(192, 132, 252, 0.6);
+  transform: translateY(-1px);
+}
+
+/* ==================== ГРАФИЧЕСКОЕ ПОЛОТНО ==================== */
+.math-graph-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  background-color: #080c18 !important;
+}
+
+.graph-display-container {
+  background-color: #080c18;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7);
+}
+
+/* ==================== МОДАЛЬНОЕ ОКНО ==================== */
+.modal-backdrop-neon {
+  background-color: rgba(4, 7, 16, 0.85);
+  backdrop-filter: blur(16px);
+}
+
+.modal-card-neon {
+  background-color: #0d1324;
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 240, 255, 0.15);
+}
+
+.step-button-active {
+  border-color: #00f0ff !important;
+  background-color: rgba(0, 240, 255, 0.15) !important;
+  color: #00f0ff !important;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2) !important;
+}
+
+/* ==================== ПЕЧАТЬ А4 (ЧИСТЫЙ БЕЛЫЙ ЛИСТ ДЛЯ ПРИНТЕРА) ==================== */
+.a4-sheet {
+  width: 100%;
+  max-width: 840px;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+@media print {
+  header,
+  nav,
+  .no-print,
+  #quick-print-btn,
+  .nav-tab-btn,
+  .print-controls-bar,
+  #theme-toggle-btn,
+  .toast,
+  #task-modal,
+  #solution-modal,
+  #generator-modal {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .tab-section {
+    display: none !important;
+  }
+
+  #section-preview {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .a4-sheet {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+    padding-bottom: 20mm;
+  }
+
+  .print-task-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .math-graph-svg {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 12mm 15mm;
+  }
+}
