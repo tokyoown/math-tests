@@ -28,61 +28,62 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-300">
 
   <!-- ==================== ШАПКА / HEADER ==================== -->
-  <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-cyan-950/30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <!-- ==================== ВЕРХНЯЯ ШАПКА САЙТА (АДАПТИВНАЯ) ==================== -->
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-cyan-950/30 no-print">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
       
-      <!-- Логотип с неоновым свечением -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-500 p-0.5 shadow-md shadow-cyan-500/30">
-          <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-            <svg class="w-5 h-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 17l6-6 4 4 8-8" />
-            </svg>
+      <!-- Верхняя линия: Логотип и быстрые действия -->
+      <div class="h-16 flex items-center justify-between gap-2">
+        <!-- Логотип с неоновым свечением -->
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-500 p-0.5 shadow-md shadow-cyan-500/30 flex-shrink-0">
+            <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+              <svg class="w-5 h-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 17l6-6 4 4 8-8" />
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <span class="font-extrabold text-sm sm:text-base tracking-tight text-white">
+                ГрафМастер <span class="text-cyan-400 neon-text-glow font-black">NEON</span>
+              </span>
+              <span class="text-[9px] sm:text-[10px] font-bold bg-cyan-950/80 text-cyan-300 px-1.5 sm:px-2 py-0.5 rounded-full border border-cyan-500/40">
+                1 КУРС СПО
+              </span>
+            </div>
+            <span class="text-[10px] text-slate-400 hidden md:block">Все графики функций, генератор вариантов и решений</span>
           </div>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-extrabold text-base tracking-tight text-white">
-              ГрафМастер <span class="text-cyan-400 neon-text-glow font-black">NEON</span>
-            </span>
-            <span class="text-[10px] font-bold bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-500/40">
-              1 КУРС СПО
-            </span>
-          </div>
-          <span class="text-[11px] text-slate-400 hidden sm:block">Генератор вариантов и ответов по графикам функций</span>
+
+        <!-- Десктопные вкладки навигации -->
+        <nav class="hidden md:flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-cyan-500/20">
+          <button type="button" data-tab="builder" class="nav-tab-btn active-tab">
+            ⚡ Конструктор вариантов
+          </button>
+          <button type="button" data-tab="bank" class="nav-tab-btn">
+            📚 Банк заданий (18 тем)
+          </button>
+        </nav>
+
+        <!-- Правые действия: Кнопка генератора вариантов -->
+        <div class="flex items-center gap-2">
+          <button id="open-generator-btn" type="button" class="btn-neon-purple px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition shadow-neon-purple">
+            <span>⚡</span>
+            <span>Генератор вариантов</span>
+          </button>
         </div>
       </div>
 
-      <!-- Вкладки навигации -->
-      <nav class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-cyan-500/20">
-        <button type="button" data-tab="builder" class="nav-tab-btn active-tab">
-          Конструктор
+      <!-- Мобильная полоса навигации (плавный touch-скролл для телефонов) -->
+      <nav class="flex md:hidden items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-none pb-2 pt-0.5 border-t border-slate-800/50">
+        <button type="button" data-tab="builder" class="nav-tab-btn active-tab text-xs py-1.5 px-3">
+          ⚡ Конструктор вариантов
         </button>
-        <button type="button" data-tab="bank" class="nav-tab-btn">
-          Банк заданий
-        </button>
-        <button type="button" data-tab="plotter" class="nav-tab-btn">
-          Лаборатория и анимация
-        </button>
-        <button type="button" data-tab="preview" class="nav-tab-btn">
-          Печать и А4
+        <button type="button" data-tab="bank" class="nav-tab-btn text-xs py-1.5 px-3">
+          📚 Банк заданий (18 тем)
         </button>
       </nav>
-
-      <!-- Правые действия: Кнопка генератора и печать -->
-      <div class="flex items-center gap-2.5">
-        <button id="open-generator-btn" type="button" class="btn-neon-purple px-3.5 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition">
-          <span>⚡</span>
-          <span class="hidden sm:inline">Генератор вариантов</span>
-        </button>
-
-        <button id="quick-print-btn" type="button" class="btn-neon-primary px-3.5 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
-          <span>Печать / PDF</span>
-        </button>
-      </div>
 
     </div>
   </header>
@@ -93,166 +94,83 @@
     <!-- ==================== ВКЛАДКА 1: КОНСТРУКТОР ВАРИАНТОВ ==================== -->
     <section id="section-builder" class="tab-section">
       
-      <!-- Верхняя неоновая панель шаблонов -->
-      <div class="card-neon p-4 mb-6">
+      <!-- Панель управления вариантами и режимами -->
+      <div class="card-neon p-4 sm:p-5 mb-6">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">
-                ⚡ Быстрые готовые работы:
-              </span>
-              <span class="text-[11px] text-slate-400">выберите шаблон для мгновенной сборки</span>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button type="button" data-preset="short" class="preset-pill">
-                Самостоятельная (20 мин, 3 зад.)
-              </button>
-              <button type="button" data-preset="control" class="preset-pill">
-                Контрольная работа (45 мин, 5 зад.)
-              </button>
-              <button type="button" data-preset="diagnostic" class="preset-pill">
-                Диагностический срез (60 мин)
-              </button>
-              <button type="button" data-preset="exam" class="preset-pill">
-                Итоговый зачет (90 мин, 8 зад.)
-              </button>
+          <!-- Левая группа: Кнопка генератора и счетчики -->
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="builder-open-generator-btn" type="button" class="btn-neon-purple px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 shadow-neon-purple transition">
+              <span>⚡</span>
+              <span>Сгенерировать работу</span>
+            </button>
+
+            <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400">В работе:</span>
+              <span id="selected-tasks-count" class="bg-cyan-950 text-cyan-300 text-xs font-bold px-2.5 py-0.5 rounded border border-cyan-500/40">0</span>
+              <span id="total-points-badge" class="bg-slate-900 text-slate-300 text-xs font-medium px-2 py-0.5 rounded border border-slate-800">0 баллов</span>
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-medium text-slate-300">Вариантов:</span>
-              <div id="variant-buttons-group" class="flex gap-1.5"></div>
-              <button id="builder-open-generator-btn" type="button" class="btn-neon-purple px-2.5 py-1 text-xs rounded-lg flex items-center gap-1 transition">
-                <span>⚡</span>
-                <span>Генератор</span>
-              </button>
+          <!-- Центральная группа: Число вариантов и выбор варианта -->
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-slate-400 font-medium">Вариантов:</span>
+              <div id="variant-buttons-group" class="flex gap-1"></div>
             </div>
 
-            <div class="h-5 w-px bg-slate-800 hidden sm:block"></div>
+            <div class="h-6 w-px bg-slate-800 hidden md:block"></div>
 
             <div class="flex items-center gap-1.5">
-              <button id="export-json-btn" type="button" class="px-2.5 py-1.5 text-xs text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 rounded-lg transition border border-slate-800 bg-slate-900/60">
-                Экспорт JSON
-              </button>
-              <label class="px-2.5 py-1.5 text-xs text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 rounded-lg transition border border-slate-800 bg-slate-900/60 cursor-pointer">
-                Импорт
-                <input type="file" id="import-json-input" accept=".json" class="hidden">
-              </label>
-              <button id="reset-all-btn" type="button" class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-400 rounded-lg transition">
-                Сброс
-              </button>
+              <span class="text-xs text-cyan-300 font-semibold">Вариант:</span>
+              <div id="builder-variant-switcher" class="flex flex-wrap gap-1"></div>
             </div>
+          </div>
 
+          <!-- Правая группа: Режим студента (чистая сетка), Ответы и Очистка -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="builder-mode-toggle-btn" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-500/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/60 transition flex items-center gap-1.5" title="В режиме студента показывается координатная сетка для самостоятельного черчения">
+              <span id="builder-mode-icon">✏️</span>
+              <span id="builder-mode-text">Режим черчения (сетка)</span>
+            </button>
+
+            <button id="toggle-builder-answers-btn" type="button" class="btn-neon-emerald px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition">
+              <span>🔑</span>
+              <span id="toggle-builder-answers-label">Ответы и решения</span>
+            </button>
+
+            <button type="button" onclick="switchTab('bank')" class="text-xs font-semibold text-cyan-400 hover:underline px-2 py-1">
+              + Банк заданий
+            </button>
+
+            <button id="clear-tasks-btn" type="button" class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition" title="Очистить все задания">
+              ✕ Очистить
+            </button>
           </div>
 
         </div>
       </div>
 
-      <!-- Сетка: Задания слева + Параметры бланка справа -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        <!-- Задания -->
-        <div class="lg:col-span-8 space-y-4">
-          
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 card-neon p-3.5 px-4">
-            <div class="flex items-center gap-2.5">
-              <span class="font-medium text-sm text-white">Заданий в работе:</span>
-              <span id="selected-tasks-count" class="bg-cyan-950 text-cyan-300 text-xs font-bold px-2 py-0.5 rounded border border-cyan-500/40">0</span>
-              <span id="total-points-badge" class="bg-slate-900 text-slate-300 text-xs font-medium px-2 py-0.5 rounded border border-slate-800">0 баллов</span>
-            </div>
-
-            <div id="builder-variant-switcher" class="flex items-center gap-1.5"></div>
-
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="switchTab('bank')" class="text-xs font-semibold text-cyan-400 hover:underline">
-                + Добавить из банка
-              </button>
-              <span class="text-slate-700">|</span>
-              <button id="clear-tasks-btn" type="button" class="text-xs text-slate-500 hover:text-rose-400">
-                Очистить
-              </button>
-            </div>
+      <!-- Интерактивная неоновая панель ключей и решений ко всем вариантам -->
+      <div id="builder-answers-panel" class="card-neon p-4 sm:p-5 mb-5 hidden">
+        <div class="flex items-center justify-between border-b border-cyan-500/20 pb-2.5 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-emerald-400 text-base">🔑</span>
+            <h3 class="font-bold text-xs sm:text-sm text-white">Ключи к ответам и подробные решения всех вариантов</h3>
           </div>
-
-          <div id="selected-tasks-list" class="space-y-4"></div>
-
+          <span class="text-[11px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+            Для преподавателя
+          </span>
         </div>
+        <div id="builder-answers-content" class="space-y-4"></div>
+      </div>
 
-        <!-- Правая колонка: Параметры бланка -->
-        <div class="lg:col-span-4 space-y-4">
-          
-          <div class="card-neon p-5 sticky top-20">
-            <div class="flex items-center justify-between pb-3 mb-4 border-b border-cyan-500/20">
-              <h3 class="font-bold text-sm text-white">
-                Параметры бланка А4
-              </h3>
-              <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            </div>
+      <!-- Полная ширина для списка карточек заданий -->
+      <div id="selected-tasks-list" class="space-y-4"></div>
 
-            <div class="space-y-3.5 text-xs">
-              <div>
-                <label class="block font-medium text-slate-400 mb-1">Учебное заведение:</label>
-                <input id="setting-college" type="text" class="w-full px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200 focus:outline-none focus:border-cyan-500">
-              </div>
-
-              <div>
-                <label class="block font-medium text-slate-400 mb-1">Дисциплина:</label>
-                <input id="setting-subject" type="text" class="w-full px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200 focus:outline-none focus:border-cyan-500">
-              </div>
-
-              <div>
-                <label class="block font-medium text-slate-400 mb-1">Тема работы:</label>
-                <textarea id="setting-topic" rows="2" class="w-full px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200 focus:outline-none focus:border-cyan-500"></textarea>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block font-medium text-slate-400 mb-1">Время выполнения:</label>
-                  <input id="setting-time" type="text" class="w-full px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200">
-                </div>
-                <div>
-                  <label class="block font-medium text-slate-400 mb-1">Печать вариантов:</label>
-                  <select id="setting-layout-mode" class="w-full px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200">
-                    <option value="one-per-page">Каждый вар. с новой стр.</option>
-                    <option value="compact">Компактный режим</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label class="block font-medium text-slate-400 mb-1">Шкала оценивания:</label>
-                <input id="setting-scale" type="text" class="w-full px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-200">
-              </div>
-
-              <div class="pt-2 border-t border-slate-800 space-y-2">
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                  <input id="setting-student-fields" type="checkbox" class="rounded text-cyan-500 focus:ring-cyan-500 bg-slate-900 border-slate-700">
-                  <span class="text-slate-300">Поля для студента (ФИО, группа, дата)</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                  <input id="setting-answers-sheet" type="checkbox" class="rounded text-cyan-500 focus:ring-cyan-500 bg-slate-900 border-slate-700">
-                  <span class="text-cyan-300 font-medium">Лист ответов для преподавателя</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                  <input id="setting-criteria" type="checkbox" class="rounded text-cyan-500 focus:ring-cyan-500 bg-slate-900 border-slate-700">
-                  <span class="text-slate-300">Критерии оценивания к заданиям</span>
-                </label>
-              </div>
-
-              <div class="pt-2">
-                <button type="button" onclick="switchTab('preview')" class="w-full py-2.5 btn-neon-primary rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
-                  <span>Предпросмотр бланка и ответов</span>
-                  <span>→</span>
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
+    </section>
 
       </div>
 
@@ -302,177 +220,6 @@
 
     </section>
 
-    <!-- ==================== ВКЛАДКА 3: ЛАБОРАТОРИЯ И АНИМАЦИЯ ==================== -->
-    <section id="section-plotter" class="tab-section hidden">
-      
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        <div class="lg:col-span-5 card-neon p-5 space-y-4">
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <h3 class="font-bold text-sm text-white flex items-center gap-2">
-                <span>Лаборатория графиков</span>
-              </h3>
-              <span class="text-[10px] text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 rounded-full font-mono">
-                Анимация 2.8s
-              </span>
-            </div>
-            <p class="text-xs text-slate-400">
-              Построение графиков с медленным плавным вычерчиванием кривой и неоновым свечением.
-            </p>
-          </div>
-
-          <!-- Блок динамической анимации параметра -->
-          <div class="p-3.5 bg-slate-950/80 rounded-xl border border-cyan-500/30 text-xs">
-            <div class="flex items-center justify-between mb-2">
-              <span class="font-semibold text-cyan-300 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>Плавная динамика параметра:</span>
-              </span>
-              <button id="plotter-anim-toggle" type="button" class="btn-neon-primary px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1">
-                <span id="anim-play-icon">▶</span>
-                <span id="anim-play-text">Запустить</span>
-              </button>
-            </div>
-            <div class="flex items-center gap-3">
-              <label class="text-[11px] text-slate-400 font-medium">Параметр a = <span id="param-val-badge" class="font-mono font-bold text-cyan-300">1.0</span>:</label>
-              <input id="plotter-param-slider" type="range" min="-3" max="3" step="0.05" value="1" class="flex-1 accent-cyan-400">
-            </div>
-          </div>
-
-          <!-- Пресеты формул -->
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5">Быстрые формулы функций:</label>
-            <div class="flex flex-wrap gap-1.5">
-              <button type="button" data-formula="x^2 - 4" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">x² - 4</button>
-              <button type="button" data-formula="-0.5*(x-2)^2 + 3" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">-0.5(x-2)² + 3</button>
-              <button type="button" data-formula="2/(x-1) + 2" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">2/(x-1) + 2</button>
-              <button type="button" data-formula="abs(x^2 - 4)" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">|x² - 4|</button>
-              <button type="button" data-formula="2^x" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">2ˣ</button>
-              <button type="button" data-formula="2*sin(x)" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">2 sin(x)</button>
-              <button type="button" data-formula="sqrt(x)" class="plotter-quick-preset text-[11px] px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-400 hover:text-cyan-400">√x</button>
-            </div>
-          </div>
-
-          <!-- Ввод функций -->
-          <div class="space-y-3 pt-2 border-t border-slate-800">
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-semibold text-cyan-400">Функция 1: y = f(x)</label>
-                <input id="plotter-color1" type="color" value="#00f0ff" class="w-5 h-5 p-0 border-0 rounded cursor-pointer bg-transparent">
-              </div>
-              <input id="plotter-fn1" type="text" value="x^2 - 2*x - 3" placeholder="например: x^2 - 4x + 3" class="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-800 bg-slate-950 text-cyan-300 focus:outline-none focus:border-cyan-500">
-            </div>
-
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-semibold text-rose-400">Функция 2: y = g(x) (для пересечений)</label>
-                <input id="plotter-color2" type="color" value="#ff2d75" class="w-5 h-5 p-0 border-0 rounded cursor-pointer bg-transparent">
-              </div>
-              <input id="plotter-fn2" type="text" value="" placeholder="например: x - 1" class="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-800 bg-slate-950 text-rose-300 focus:outline-none focus:border-rose-500">
-            </div>
-          </div>
-
-          <!-- Оси -->
-          <div class="pt-2 border-t border-slate-800">
-            <label class="block text-xs font-medium text-slate-400 mb-1.5">Оси координат:</label>
-            <div class="grid grid-cols-4 gap-2 text-xs">
-              <div>
-                <span class="text-[10px] text-slate-500">X min</span>
-                <input id="plotter-xmin" type="number" value="-5" class="w-full px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-200">
-              </div>
-              <div>
-                <span class="text-[10px] text-slate-500">X max</span>
-                <input id="plotter-xmax" type="number" value="5" class="w-full px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-200">
-              </div>
-              <div>
-                <span class="text-[10px] text-slate-500">Y min</span>
-                <input id="plotter-ymin" type="number" value="-5" class="w-full px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-200">
-              </div>
-              <div>
-                <span class="text-[10px] text-slate-500">Y max</span>
-                <input id="plotter-ymax" type="number" value="5" class="w-full px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-200">
-              </div>
-            </div>
-          </div>
-
-          <!-- Точки -->
-          <div class="pt-2 border-t border-slate-800">
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-medium text-slate-400">Точки на графике:</label>
-              <button id="plotter-add-point-btn" type="button" class="text-xs text-cyan-400 hover:underline">+ Точка</button>
-            </div>
-            <div id="plotter-points-list" class="max-h-36 overflow-y-auto space-y-1"></div>
-          </div>
-
-          <!-- Действия -->
-          <div class="pt-3 border-t border-slate-800 flex gap-2">
-            <button id="plotter-reanimate-btn" type="button" class="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-semibold rounded-lg border border-cyan-500/30 transition text-center flex items-center justify-center gap-1.5">
-              <span>🔄</span>
-              <span>Плавная перерисовка (2.8s)</span>
-            </button>
-            <button id="plotter-create-task-btn" type="button" class="flex-1 py-2 btn-neon-primary text-xs font-bold rounded-lg transition text-center">
-              Создать задание
-            </button>
-          </div>
-
-        </div>
-
-        <!-- Чертеж и анализ -->
-        <div class="lg:col-span-7 space-y-4">
-          
-          <div class="card-neon p-4 flex flex-col items-center">
-            <div class="w-full flex justify-between items-center mb-2 px-1">
-              <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Неоновый экран осциллографа</span>
-              <span class="text-[11px] text-slate-400 font-mono">Векторный SVG с лазерным следом</span>
-            </div>
-            
-            <div id="plotter-preview-container" class="w-full flex justify-center p-2 rounded-xl bg-slate-950 border border-cyan-500/20 shadow-inner overflow-hidden"></div>
-          </div>
-
-          <div class="card-neon p-4 text-xs">
-            <h4 class="font-bold text-cyan-300 mb-1.5 flex items-center gap-1.5">
-              <span>⚡</span>
-              <span>Математический анализ графика функции:</span>
-            </h4>
-            <div id="plotter-analysis-box" class="space-y-1 text-slate-300 font-mono"></div>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ==================== ВКЛАДКА 4: ПРЕДПРОСМОТР И ПЕЧАТЬ ==================== -->
-    <section id="section-preview" class="tab-section hidden">
-      
-      <div class="print-controls-bar card-neon p-4 mb-6 no-print">
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 class="font-bold text-sm text-white mb-0.5">
-              Печать бланков и листа ответов для преподавателя (А4)
-            </h3>
-            <p class="text-xs text-slate-400">
-              Для принтера автоматически применяется чистый белый фон и четкая контрастная графика.
-            </p>
-          </div>
-
-          <div class="flex items-center gap-3">
-            <button type="button" onclick="window.print()" class="btn-neon-primary px-5 py-2 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              <span>Распечатать / Сохранить в PDF</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div id="print-preview-container" class="space-y-8"></div>
-
-    </section>
-
   </main>
 
   <!-- ==================== МОДАЛЬНОЕ ОКНО ГЕНЕРАТОРА ВАРИАНТОВ ==================== -->
@@ -513,7 +260,10 @@
             <option value="4" selected>4 задания (Стандартная проверочная, 30 мин)</option>
             <option value="5">5 заданий (Контрольная работа, 45 мин)</option>
             <option value="6">6 заданий (Диагностический срез, 60 мин)</option>
-            <option value="8">8 заданий (Полный итоговый зачет, 90 мин)</option>
+            <option value="8">8 заданий (Итоговый зачет, 90 мин)</option>
+            <option value="10">10 заданий (Развернутая контрольная работа)</option>
+            <option value="14">14 заданий (Большой практический практикум)</option>
+            <option value="18">Все 18 тем (Полный охват всех функций СПО)</option>
           </select>
         </div>
 
@@ -735,7 +485,134 @@
     </div>
   </div>
 
+
+  <!-- ==================== ИНТЕРАКТИВНАЯ ДОСКА СТУДЕНТА (WHITEBOARD) ==================== -->
+  <div id="whiteboard-modal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md hidden">
+    <div class="modal-card-neon w-full max-w-6xl max-h-[96vh] flex flex-col bg-[#0b1120] border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden">
+      
+      <!-- Шапка модального окна доски -->
+      <div class="p-3 sm:p-4 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 overflow-hidden">
+          <span class="text-2xl flex-shrink-0">🎨</span>
+          <div class="overflow-hidden">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 id="wb-task-title" class="font-bold text-white text-sm sm:text-base truncate">Интерактивная доска</h3>
+              <span id="wb-variant-badge" class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400">Вариант 1</span>
+              <span id="wb-task-desc" class="text-xs text-slate-400 hidden sm:inline"></span>
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span id="wb-question-text" class="text-xs text-slate-300 truncate max-w-md sm:max-w-xl"></span>
+              <button id="wb-expand-question-btn" type="button" class="text-xs text-cyan-400 hover:text-cyan-300 underline flex-shrink-0">Развернуть</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button id="wb-close-btn" type="button" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-lg transition" title="Закрыть (Esc)">✕</button>
+        </div>
+      </div>
+
+      <!-- Полный текст условия (раскрывающийся) -->
+      <div id="wb-question-full" class="hidden px-4 py-3 bg-slate-950 border-b border-slate-800 text-xs text-slate-200 whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto font-sans"></div>
+
+      <!-- Панель инструментов доски -->
+      <div class="px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-900/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+        
+        <!-- Инструменты черчения -->
+        <div class="flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+          <button type="button" data-tool="pen" class="wb-tool-btn active px-2.5 py-1.5 rounded-lg border border-cyan-400 bg-cyan-500/20 text-cyan-300 font-semibold flex items-center gap-1 transition" title="Свободное рисование (перо с неоновым свечением)">
+            <span>✏️</span><span class="hidden sm:inline">Перо</span>
+          </button>
+          <button type="button" data-tool="line" class="wb-tool-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 font-semibold flex items-center gap-1 transition" title="Прямая линия или асимптота">
+            <span>📏</span><span class="hidden sm:inline">Прямая</span>
+          </button>
+          <button type="button" data-tool="point" class="wb-tool-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 font-semibold flex items-center gap-1 transition" title="Точка графика с привязкой и координатами (x; y)">
+            <span>📍</span><span class="hidden sm:inline">Точка (x; y)</span>
+          </button>
+          <button type="button" data-tool="text" class="wb-tool-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 font-semibold flex items-center gap-1 transition" title="Текстовая подпись / формула">
+            <span>✍️</span><span class="hidden sm:inline">Текст</span>
+          </button>
+          <button type="button" data-tool="eraser" class="wb-tool-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 font-semibold flex items-center gap-1 transition" title="Ластик">
+            <span>🧹</span><span class="hidden sm:inline">Ластик</span>
+          </button>
+        </div>
+
+        <!-- Цветовая палитра -->
+        <div class="flex items-center gap-1.5 bg-slate-950/70 px-2 py-1.5 rounded-xl border border-slate-800">
+          <span class="text-[11px] text-slate-400 hidden md:inline mr-1">Цвет:</span>
+          <button type="button" data-color="#00f0ff" class="wb-color-btn w-6 h-6 rounded-full border-2 border-white scale-110 shadow-neon-cyan transition" style="background-color: #00f0ff;" title="Неоновый Голубой"></button>
+          <button type="button" data-color="#ff2d75" class="wb-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-105 transition" style="background-color: #ff2d75;" title="Неоновый Пурпурный"></button>
+          <button type="button" data-color="#10e897" class="wb-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-105 transition" style="background-color: #10e897;" title="Неоновый Изумрудный"></button>
+          <button type="button" data-color="#facc15" class="wb-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-105 transition" style="background-color: #facc15;" title="Неоновый Желтый"></button>
+          <button type="button" data-color="#ffffff" class="wb-color-btn w-6 h-6 rounded-full border-2 border-transparent hover:scale-105 transition" style="background-color: #ffffff;" title="Белый"></button>
+        </div>
+
+        <!-- Толщина линии -->
+        <div class="flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+          <button type="button" data-size="2" class="wb-size-btn px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 text-[11px] transition">2px</button>
+          <button type="button" data-size="4" class="wb-size-btn px-2 py-1 rounded-lg border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold text-[11px] transition">4px</button>
+          <button type="button" data-size="8" class="wb-size-btn px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 text-[11px] transition">8px</button>
+        </div>
+
+        <!-- История и очистка -->
+        <div class="flex items-center gap-1">
+          <button id="wb-undo-btn" type="button" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition flex items-center gap-1" title="Отменить последнее действие (Ctrl+Z)" disabled>
+            <span>↶</span><span class="hidden lg:inline">Отмена</span>
+          </button>
+          <button id="wb-redo-btn" type="button" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition flex items-center gap-1" title="Повторить действие (Ctrl+Y)" disabled>
+            <span>↷</span><span class="hidden lg:inline">Повтор</span>
+          </button>
+          <button id="wb-clear-btn" type="button" class="px-2.5 py-1.5 rounded-lg border border-rose-500/30 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 transition flex items-center gap-1" title="Очистить весь чертеж">
+            <span>🗑️</span><span class="hidden lg:inline">Очистить</span>
+          </button>
+        </div>
+
+        <!-- Сверка с эталоном и сохранение -->
+        <div class="flex items-center gap-2">
+          <button id="wb-toggle-reference-btn" type="button" class="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/60 text-purple-300 transition font-semibold flex items-center gap-1.5 shadow-neon-purple" title="Показать правильный эталон полупрозрачно прямо поверх вашего чертежа">
+            <span>👁️</span><span id="wb-ref-label">Сверить с эталоном</span>
+          </button>
+          <button id="wb-download-btn" type="button" class="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition" title="Сохранить чертеж как PNG">
+            📥 PNG
+          </button>
+          <button id="wb-save-btn" type="button" class="btn-neon-primary px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-neon-cyan flex items-center gap-1.5" title="Прикрепить чертеж к текущему заданию в вашей работе">
+            💾 <span>Сохранить в работу</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Рабочая область холста (Canvas + SVG Coordinate Grid) -->
+      <div class="p-3 sm:p-4 flex-1 flex flex-col min-h-0 bg-[#050811]">
+        <div id="wb-canvas-container" class="relative w-full h-[55vh] sm:h-[62vh] bg-[#070b16] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl">
+          
+          <!-- Слой 1: SVG координатная сетка с осями и разметкой -->
+          <div id="wb-grid-layer" class="absolute inset-0 pointer-events-none z-0"></div>
+
+          <!-- Слой 2: Эталонный полупрозрачный график для сверки -->
+          <div id="wb-reference-layer" class="absolute inset-0 pointer-events-none z-10 transition-opacity duration-300 opacity-0"></div>
+
+          <!-- Слой 3: Интерактивный Canvas для студента -->
+          <canvas id="wb-draw-canvas" class="absolute inset-0 w-full h-full z-20 cursor-crosshair touch-none"></canvas>
+
+          <!-- Плашка текущих координат курсора (x, y) -->
+          <div id="wb-coords-tooltip" class="absolute bottom-3 right-3 px-3 py-1 bg-slate-950/90 border border-cyan-500/40 rounded-lg text-cyan-300 font-mono text-xs shadow-lg pointer-events-none z-30">
+            x: 0.00, y: 0.00
+          </div>
+
+          <!-- Подсказка по инструментам -->
+          <div class="absolute bottom-3 left-3 hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-950/80 border border-slate-800/80 rounded-lg text-[11px] text-slate-400 pointer-events-none z-30">
+            <span>💡 <strong>Совет:</strong> Инструмент «Точка» ставит точные координаты (вершины, нули), а «Сверить с эталоном» проверяет правильность построения!</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script src="js/math-engine.js"></script>
+  <script src="js/student-board.js"></script>
   <script src="js/task-database.js"></script>
   <script src="js/app.js"></script>
 </body>

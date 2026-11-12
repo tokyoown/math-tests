@@ -313,3 +313,66 @@ body {
     margin: 12mm 15mm 12mm 15mm;
   }
 }
+
+/* ==================== АДАПТИВНОСТЬ ДЛЯ ТЕЛЕФОНОВ И ПЛАНШЕТОВ ==================== */
+@media (max-width: 640px) {
+  .card-neon {
+    padding: 0.875rem !important;
+    border-radius: 12px !important;
+  }
+
+  .modal-card-neon {
+    max-height: 92vh !important;
+    width: 96vw !important;
+    margin: 0.5rem !important;
+  }
+
+  .nav-tab-btn {
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .btn-neon-primary, .btn-neon-purple, .btn-neon-emerald {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .math-graph-svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+/* ==================== ИНТЕРАКТИВНАЯ ДОСКА СТУДЕНТА ==================== */
+#wb-draw-canvas {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.wb-color-btn {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.wb-color-btn:hover {
+  transform: scale(1.15);
+}
+
+.wb-tool-btn.active {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+  color: #67e8f9 !important;
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+}
+
+#wb-canvas-container {
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(6, 182, 212, 0.15);
+}

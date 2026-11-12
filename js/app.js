@@ -6,7 +6,7 @@
 
 class AppState {
   constructor() {
-    this.storageKey = 'grafmaster_spo_data_v2';
+    this.storageKey = 'grafmaster_spo_data_v5';
     this.themeKey = 'grafmaster_theme';
     
     this.loadState();
@@ -15,16 +15,30 @@ class AppState {
     this.variantCount = 2;
     this.activeVariantView = 1;
     this.currentTheme = 'dark';
+    this.studentMode = false; // Режим студента: отображение чистых координатных сеток для самостоятельного черчения
+    this.cardOverrides = {};
+    this.studentDrawings = {};  // Локальные переопределения для конкретных карточек
   }
 
   loadState() {
+    this.taskBank = JSON.parse(JSON.stringify(INITIAL_TASK_BANK));
     const saved = localStorage.getItem(this.storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        this.taskBank = parsed.taskBank || INITIAL_TASK_BANK;
-        this.selectedTaskIds = parsed.selectedTaskIds || ['prop-1', 'linear-1', 'quad-1', 'rational-1'];
+        if (parsed.customTasks && Array.isArray(parsed.customTasks)) {
+          parsed.customTasks.forEach(ct => {
+            const idx = this.taskBank.findIndex(t => t.id === ct.id);
+            if (idx >= 0) this.taskBank[idx] = ct;
+            else this.taskBank.unshift(ct);
+          });
+        }
+        this.selectedTaskIds = parsed.selectedTaskIds || [
+          'linear-1', 'quad-1', 'rational-1', 'cubic-1',
+          'sqrt-1', 'abs-1', 'exp-growth-1', 'trig-sin-1'
+        ];
         this.workSettings = parsed.workSettings || this.getDefaultWorkSettings();
+        this.studentDrawings = parsed.studentDrawings || {};
         return;
       } catch (e) {
         console.error('Ошибка загрузки сохраненных данных:', e);
@@ -32,7 +46,10 @@ class AppState {
     }
     
     this.taskBank = JSON.parse(JSON.stringify(INITIAL_TASK_BANK));
-    this.selectedTaskIds = ['prop-1', 'linear-1', 'quad-1', 'rational-1'];
+    this.selectedTaskIds = [
+      'linear-1', 'quad-1', 'rational-1', 'cubic-1',
+      'sqrt-1', 'abs-1', 'exp-growth-1', 'trig-sin-1'
+    ];
     this.workSettings = this.getDefaultWorkSettings();
   }
 
@@ -40,7 +57,7 @@ class AppState {
     return {
       collegeName: 'ГБПОУ «Политехнический колледж»',
       subject: 'Математика',
-      topic: 'Контрольная работа: Исследование и построение графиков функций',
+      topic: 'Контрольная работа: Все графики функций (СПО 1 курс)',
       timeLimit: '45 минут',
       showStudentFields: true,
       showAnswersSheet: true,
@@ -52,39 +69,61 @@ class AppState {
 
   saveState() {
     try {
+      // Сохраняем только пользовательские изменения и чертежи,
+      // чтобы не перегружать квоту localStorage 900 статическими задачами:
+      const customTasks = this.taskBank.filter(t => t.isCustom);
       const data = {
-        taskBank: this.taskBank,
+        customTasks,
         selectedTaskIds: this.selectedTaskIds,
-        workSettings: this.workSettings
+        workSettings: this.workSettings,
+        studentDrawings: this.studentDrawings || {}
       };
       localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (e) {
-      console.error('Ошибка сохранения данных:', e);
+      console.warn('Предупреждение сохранения в localStorage (лимит квоты):', e);
+      try {
+        // Резервное сохранение без тяжелых картинок чертежей
+        const fallback = {
+          selectedTaskIds: this.selectedTaskIds,
+          workSettings: this.workSettings
+        };
+        localStorage.setItem(this.storageKey, JSON.stringify(fallback));
+      } catch (_) {}
     }
   }
 
   resetToDefault() {
     this.taskBank = JSON.parse(JSON.stringify(INITIAL_TASK_BANK));
-    this.selectedTaskIds = ['prop-1', 'linear-1', 'quad-1', 'rational-1'];
+    this.selectedTaskIds = [
+      'linear-1', 'quad-1', 'rational-1', 'cubic-1',
+      'sqrt-1', 'abs-1', 'exp-growth-1', 'trig-sin-1'
+    ];
     this.workSettings = this.getDefaultWorkSettings();
     this.saveState();
   }
 }
 
-const state = new AppState();
+let state;
+try {
+  state = new AppState();
+} catch (e) {
+  window.__app_error = e.stack || e.toString();
+  console.error("APP INIT ERROR:", e);
+}
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initNavigation();
-  initPresetButtons();
   initVariantCountControls();
+  initBuilderModeToggle();
+  initClearTasksButton();
+  initBuilderAnswersToggle();
   initGeneratorModal();
-  initWorkSettingsForm();
   initBankTab();
-  initPlotterTab();
   initTaskModal();
   initSolutionModal();
+    if (typeof StudentBoard !== 'undefined') StudentBoard.init();
   renderCurrentTab();
 });
 
@@ -123,16 +162,6 @@ function initNavigation() {
       switchTab(tab);
     });
   });
-
-  const quickPrintBtn = document.getElementById('quick-print-btn');
-  if (quickPrintBtn) {
-    quickPrintBtn.addEventListener('click', () => {
-      switchTab('preview');
-      setTimeout(() => {
-        window.print();
-      }, 350);
-    });
-  }
 }
 
 function switchTab(tabName) {
@@ -165,84 +194,51 @@ function renderCurrentTab() {
     case 'bank':
       renderBankList();
       break;
-    case 'plotter':
-      updatePlotterPreview();
-      break;
-    case 'preview':
-      renderPrintPreview();
+    default:
+      renderBuilderTab();
       break;
   }
 }
 
 /* ==================== КОНСТРУКТОР ВАРИАНТОВ ==================== */
-function initPresetButtons() {
-  const presets = {
-    short: {
-      tasks: ['prop-1', 'linear-1', 'quad-1'],
-      title: 'Самостоятельная работа: Графики основных функций',
-      time: '20 минут'
-    },
-    control: {
-      tasks: ['prop-1', 'linear-1', 'quad-1', 'rational-1', 'transform-1'],
-      title: 'Контрольная работа: Исследование и преобразования графиков функций',
-      time: '45 минут'
-    },
-    diagnostic: {
-      tasks: ['prop-1', 'prop-2', 'linear-1', 'quad-1', 'exp-log-1', 'solve-graph-1'],
-      title: 'Диагностическая контрольная работа по математике (1 курс СПО)',
-      time: '60 минут'
-    },
-    exam: {
-      tasks: ['prop-1', 'prop-2', 'linear-1', 'quad-1', 'rational-1', 'exp-log-1', 'trig-1', 'transform-1'],
-      title: 'Итоговый зачетный практикум: Графики элементарных функций',
-      time: '90 минут'
-    }
-  };
-
-  document.querySelectorAll('.preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pKey = btn.dataset.preset;
-      const p = presets[pKey];
-      if (p) {
-        state.selectedTaskIds = [...p.tasks];
-        state.workSettings.topic = p.title;
-        state.workSettings.timeLimit = p.time;
-        state.saveState();
-        renderBuilderTab();
-        showToast(`Загружен шаблон: «${p.title}»`, 'success');
-      }
-    });
-  });
-
+function initClearTasksButton() {
   const clearBtn = document.getElementById('clear-tasks-btn');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (confirm('Удалить все выбранные задания из текущей работы?')) {
+      if (confirm('Очистить все выбранные задания из текущей работы?')) {
         state.selectedTaskIds = [];
+        state.cardOverrides = {};
         state.saveState();
         renderBuilderTab();
+        renderBuilderAnswersPanel();
         showToast('Список заданий очищен', 'info');
       }
     });
   }
+}
 
-  const resetBtn = document.getElementById('reset-all-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      if (confirm('Сбросить все настройки и восстановить стандартные задания?')) {
-        state.resetToDefault();
-        initWorkSettingsForm();
-        renderBuilderTab();
-        showToast('Все данные сброшены к исходным', 'info');
-      }
-    });
-  }
+function initBuilderModeToggle() {
+  const btn = document.getElementById('builder-mode-toggle-btn');
+  const icon = document.getElementById('builder-mode-icon');
+  const text = document.getElementById('builder-mode-text');
+  if (!btn) return;
 
-  const exportBtn = document.getElementById('export-json-btn');
-  if (exportBtn) exportBtn.addEventListener('click', exportProjectJSON);
-
-  const importInput = document.getElementById('import-json-input');
-  if (importInput) importInput.addEventListener('change', importProjectJSON);
+  btn.addEventListener('click', () => {
+    state.studentMode = !state.studentMode;
+    state.cardOverrides = {};
+    if (state.studentMode) {
+      if (icon) icon.textContent = '👁️';
+      if (text) text.textContent = 'Режим учителя (с графиками)';
+      btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/60 transition flex items-center gap-1.5 shadow-neon-emerald';
+      showToast('✏️ Включен режим студента: координатные сетки готовы к самостоятельному черчению', 'info');
+    } else {
+      if (icon) icon.textContent = '✏️';
+      if (text) text.textContent = 'Режим черчения (сетка)';
+      btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-500/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/60 transition flex items-center gap-1.5 shadow-neon-cyan';
+      showToast('👁️ Включен режим учителя: отображаются готовые эталонные графики', 'success');
+    }
+    renderBuilderTab();
+  });
 }
 
 function initVariantCountControls() {
@@ -335,89 +331,157 @@ function initGeneratorModal() {
       state.workSettings.showAnswersSheet = includeAnswers;
       state.workSettings.showCriteria = includeSolutions;
 
-      // Балансировка тем для СПО 1 курса:
-      const preferredSequence = [
-        'prop-1',       // Свойства функций
-        'linear-1',     // Линейная функция
-        'quad-1',       // Парабола
-        'rational-1',   // Гипербола
-        'abs-1',        // Модуль
-        'trig-1',       // Гармоники sin/cos
-        'exp-1',        // Экспонента и логарифм
-        'piecewise-1'   // Кусочная с разрывом
+      // Балансировка тем по ВСЕМ 18 графикам функций для 1 курса СПО:
+      const categoryKeys = [
+        'linear', 'quadratic', 'rational', 'cubic', 'quartic', 'sqrt',
+        'cbrt', 'abs', 'abs_parabola', 'exp_growth', 'exp_decay', 'log',
+        'trig_sin', 'trig_cos', 'trig_tan', 'arctrig', 'piecewise', 'solve_graph'
       ];
 
-      const availableIds = state.taskBank.map(t => t.id);
-      let chosenIds = preferredSequence.filter(id => availableIds.includes(id));
-
-      if (chosenIds.length < taskCount) {
-        const remaining = availableIds.filter(id => !chosenIds.includes(id));
-        chosenIds = chosenIds.concat(remaining);
+      const chosenIds = [];
+      // Отбираем по одному разноплановому заданию из каждой категории:
+      for (let i = 0; i < taskCount && i < categoryKeys.length; i++) {
+        const cat = categoryKeys[i];
+        const catTasks = state.taskBank.filter(t => t.category === cat);
+        if (catTasks.length > 0) {
+          const randTask = catTasks[Math.floor(Math.random() * catTasks.length)];
+          if (!chosenIds.includes(randTask.id)) {
+            chosenIds.push(randTask.id);
+          }
+        }
       }
 
-      state.selectedTaskIds = chosenIds.slice(0, taskCount);
+      // Если требуется больше заданий, дополняем случайными из оставшихся в банке:
+      const remainingTasks = state.taskBank.filter(t => !chosenIds.includes(t.id));
+      while (chosenIds.length < taskCount && remainingTasks.length > 0) {
+        const randIdx = Math.floor(Math.random() * remainingTasks.length);
+        chosenIds.push(remainingTasks.splice(randIdx, 1)[0].id);
+      }
+
+      state.selectedTaskIds = chosenIds;
 
       // Корректировка заголовка
       state.workSettings.topic = taskCount <= 3
-        ? 'Самостоятельная работа: Графики элементарных функций'
-        : taskCount <= 5
-        ? 'Контрольная работа: Исследование и графики функций'
-        : 'Диагностическая контрольная работа: Все графики функций (СПО 1 курс)';
+        ? 'Самостоятельная работа: Базовые графики функций'
+        : taskCount <= 6
+        ? 'Контрольная работа: Исследование и построение графиков функций'
+        : 'Итоговая зачетная работа: Все графики функций (СПО 1 курс)';
 
-      state.workSettings.timeLimit = taskCount <= 3 ? '20 минут' : taskCount <= 5 ? '45 минут' : '90 минут';
+      state.workSettings.timeLimit = taskCount <= 3 ? '20 минут' : taskCount <= 6 ? '45 минут' : '90 минут';
 
       state.saveState();
       initVariantCountControls();
-      initWorkSettingsForm();
       closeModal();
 
-      // Переход к предпросмотру и печати вариантов
-      switchTab('preview');
-      showToast(`⚡ Сгенерировано: ${selectedGenCount} вариантов (${taskCount} заданий) с ключами ответов!`, 'success');
+      // ОСТАЕМСЯ В ИНТЕРАКТИВНОМ НЕОНОВОМ КОНСТРУКТОРЕ НА САЙТЕ!
+      switchTab('builder');
+      renderBuilderTab();
+      renderBuilderAnswersPanel();
+      showToast(`⚡ Сгенерировано: ${selectedGenCount} вариантов (${taskCount} заданий)! Переключайте варианты кнопками вверху.`, 'success');
     });
   }
 }
 
-function initWorkSettingsForm() {
-  const s = state.workSettings;
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) {
-      if (el.type === 'checkbox') el.checked = !!val;
-      else el.value = val || '';
+/* ==================== ИНТЕРАКТИВНЫЕ ОТВЕТЫ И РЕШЕНИЯ В КОНСТРУКТОРЕ ==================== */
+function initBuilderAnswersToggle() {
+  const toggleBtn = document.getElementById('toggle-builder-answers-btn');
+  const label = document.getElementById('toggle-builder-answers-label');
+  const panel = document.getElementById('builder-answers-panel');
+  if (!toggleBtn || !panel) return;
+
+  toggleBtn.addEventListener('click', () => {
+    const isHidden = panel.classList.contains('hidden');
+    if (isHidden) {
+      panel.classList.remove('hidden');
+      if (label) label.textContent = 'Скрыть ответы';
+      renderBuilderAnswersPanel();
+    } else {
+      panel.classList.add('hidden');
+      if (label) label.textContent = 'Ответы и решения';
     }
-  };
+  });
+}
 
-  setVal('setting-college', s.collegeName);
-  setVal('setting-subject', s.subject);
-  setVal('setting-topic', s.topic);
-  setVal('setting-time', s.timeLimit);
-  setVal('setting-scale', s.gradingScale);
-  setVal('setting-student-fields', s.showStudentFields);
-  setVal('setting-answers-sheet', s.showAnswersSheet);
-  setVal('setting-criteria', s.showCriteria);
-  setVal('setting-layout-mode', s.layoutMode);
+function renderBuilderAnswersPanel() {
+  const panel = document.getElementById('builder-answers-panel');
+  const container = document.getElementById('builder-answers-content');
+  if (!panel || !container || panel.classList.contains('hidden')) return;
 
-  const inputs = [
-    'setting-college', 'setting-subject', 'setting-topic', 'setting-time',
-    'setting-scale', 'setting-student-fields', 'setting-answers-sheet',
-    'setting-criteria', 'setting-layout-mode'
-  ];
+  const selectedTasks = state.selectedTaskIds
+    .map(id => state.taskBank.find(t => t.id === id))
+    .filter(Boolean);
 
-  inputs.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', () => {
-      s.collegeName = document.getElementById('setting-college').value;
-      s.subject = document.getElementById('setting-subject').value;
-      s.topic = document.getElementById('setting-topic').value;
-      s.timeLimit = document.getElementById('setting-time').value;
-      s.gradingScale = document.getElementById('setting-scale').value;
-      s.showStudentFields = document.getElementById('setting-student-fields').checked;
-      s.showAnswersSheet = document.getElementById('setting-answers-sheet').checked;
-      s.showCriteria = document.getElementById('setting-criteria').checked;
-      s.layoutMode = document.getElementById('setting-layout-mode').value;
-      state.saveState();
+  if (selectedTasks.length === 0) {
+    container.innerHTML = '<p class="text-xs text-slate-400">Нет выбранных заданий для формирования ключей ответов.</p>';
+    return;
+  }
+
+  let html = '';
+  for (let vNum = 1; vNum <= state.variantCount; vNum++) {
+    html += `
+      <div class="border border-cyan-500/30 rounded-xl p-3 sm:p-4 bg-slate-950/80 mb-3 shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded text-xs font-black bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-neon-cyan">ВАРИАНТ № ${vNum}</span>
+            <span class="text-xs text-slate-400 font-medium">(${selectedTasks.length} заданий)</span>
+          </div>
+          <button type="button" class="text-xs text-cyan-400 hover:underline font-semibold" onclick="state.activeVariantView = ${vNum}; renderBuilderTab();">
+            Смотреть карточки варианта →
+          </button>
+        </div>
+
+        <div class="space-y-3">
+    `;
+
+    selectedTasks.forEach((task, tIdx) => {
+      const varData = task.variants[(vNum - 1) % task.variants.length];
+      const sol = varData.detailedSolution || {};
+
+      html += `
+        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800/80 text-xs">
+          <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <span class="font-bold text-white">Задание ${tIdx + 1}: <span class="text-slate-300 font-medium">${escapeHtml(task.title)}</span></span>
+            <span class="text-[11px] text-cyan-400 font-semibold bg-cyan-950 px-2 py-0.5 rounded border border-cyan-500/30">(${task.points || 1} б.)</span>
+          </div>
+
+          <div class="text-[11px] text-slate-300 mb-2 whitespace-pre-line leading-relaxed">
+            ${escapeHtml(varData.question)}
+          </div>
+
+          <div class="bg-emerald-950/50 border border-emerald-500/40 p-2.5 rounded text-emerald-300 mb-2 font-mono text-[11px] leading-relaxed">
+            <strong>✓ Ключ к ответу:</strong>\n${escapeHtml(varData.answer)}
+          </div>
+
+          ${sol.theory ? `
+            <div class="text-[10px] text-slate-400 mb-2 leading-relaxed">
+              <strong>Теория и формулы:</strong> ${escapeHtml(sol.theory.split('\n')[0])}
+            </div>
+          ` : ''}
+
+          <div class="flex justify-end pt-1">
+            <button type="button" class="btn-builder-sol-modal text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold" data-taskid="${task.id}" data-vnum="${vNum}">
+              <span>🔍</span>
+              <span>Полное пошаговое решение</span>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.btn-builder-sol-modal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tid = btn.dataset.taskid;
+      const v = parseInt(btn.dataset.vnum, 10);
+      const task = state.taskBank.find(t => t.id === tid);
+      if (task) openSolutionModal(task, v);
     });
   });
 }
@@ -461,12 +525,12 @@ function renderBuilderTab() {
 
   if (selectedTasks.length === 0) {
     listContainer.innerHTML = `
-      <div class="empty-state-box p-8 text-center bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+      <div class="empty-state-box p-8 text-center bg-slate-900/60 rounded-xl border border-dashed border-slate-800">
         <div class="text-4xl mb-3">📝</div>
-        <h4 class="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">В работе пока нет ни одного задания</h4>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Выберите готовые задания из банка или воспользуйтесь быстрыми шаблонами вверху.</p>
-        <button type="button" onclick="switchTab('bank')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow transition">
-          Открыть банк заданий
+        <h4 class="text-base font-semibold text-white mb-1">В работе пока нет ни одного задания</h4>
+        <p class="text-xs text-slate-400 mb-4">Нажмите «⚡ Сгенерировать работу» или выберите нужные задачи в банке заданий.</p>
+        <button type="button" onclick="switchTab('bank')" class="btn-neon-primary px-4 py-2 text-xs font-semibold rounded-lg shadow transition">
+          Открыть банк заданий (900 задач)
         </button>
       </div>
     `;
@@ -478,13 +542,18 @@ function renderBuilderTab() {
   selectedTasks.forEach((task, index) => {
     const varData = task.variants[(state.activeVariantView - 1) % task.variants.length];
     
-    // Анимированный SVG-график
+    // Проверка режима отображения (чистая координатная сетка для студента или готовый график)
+    const isOverride = state.cardOverrides[task.id];
+    const isBlank = (typeof isOverride === 'boolean') ? isOverride : state.studentMode;
+    const hasDrawing = state.studentDrawings && !!state.studentDrawings[task.id];
+
     const svgCode = GraphRenderer.renderSVG({
       ...varData.graphConfig,
       width: 320,
       height: 240,
-      theme: state.currentTheme === 'dark' ? 'dark' : 'notebook',
-      animated: true
+      theme: 'neon',
+      animated: true,
+      blankGrid: isBlank
     });
 
     const card = document.createElement('div');
@@ -492,71 +561,80 @@ function renderBuilderTab() {
     card.innerHTML = `
       <div class="flex flex-col md:flex-row gap-5 items-start">
         <div class="w-full md:w-5/12 flex-shrink-0 flex flex-col items-center">
-          <div class="w-full bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 flex justify-center overflow-hidden">
+          <div class="w-full bg-[#070b16] p-2 rounded-xl border border-cyan-500/20 flex justify-center overflow-hidden shadow-inner">
             ${svgCode}
           </div>
-          <div class="mt-2 flex items-center gap-2 text-xs">
-            <button type="button" class="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 copy-graph-btn transition">
-              Скачать SVG
+          <div class="mt-2.5 flex items-center justify-between w-full px-1 text-xs">
+            <button type="button" class="btn-toggle-graph-view text-xs font-semibold ${
+              isBlank ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+            } transition flex items-center gap-1">
+              <span>${isBlank ? '👁️ Показать эталонный график' : '✏️ Сетка для черчения'}</span>
             </button>
-            <span class="text-slate-300 dark:text-slate-600">·</span>
-            <button type="button" class="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 open-plotter-btn transition">
-              В лабораторию
+            <button type="button" class="text-slate-500 hover:text-cyan-400 copy-graph-btn transition text-[11px]">
+              Скачать SVG
             </button>
           </div>
         </div>
 
         <div class="w-full md:w-7/12 flex flex-col justify-between h-full">
           <div>
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
               <div class="flex items-center gap-2">
-                <span class="font-medium text-xs text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                <span class="font-bold text-xs text-cyan-300 bg-cyan-950/80 px-2.5 py-0.5 rounded border border-cyan-500/40">
                   Задание ${index + 1}
                 </span>
-                <span class="text-xs text-slate-500 dark:text-slate-400">
+                <span class="text-xs text-slate-400 font-medium">
                   ${task.categoryName || 'Общая тема'}
                 </span>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-xs px-2 py-0.5 rounded font-medium ${getDifficultyBadgeClass(task.difficulty)}">
+                <span class="text-xs px-2 py-0.5 rounded font-semibold bg-fuchsia-950/70 text-fuchsia-300 border border-fuchsia-500/30">
+                  ✏️ Построение графика
+                </span>
+                <span class="text-xs px-2 py-0.5 rounded font-semibold ${getDifficultyBadgeClass(task.difficulty)}">
                   ${task.difficultyLabel || 'Базовый'}
                 </span>
-                <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                <span class="text-xs text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                   ${task.points || 1} б.
                 </span>
               </div>
             </div>
 
-            <h4 class="font-semibold text-sm text-slate-900 dark:text-white mb-2">${task.title}</h4>
-            <div class="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line mb-3 font-sans leading-relaxed bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-100 dark:border-slate-800/80">
+            <h4 class="font-bold text-sm text-white mb-2">${task.title}</h4>
+            <div class="text-xs text-slate-300 whitespace-pre-line mb-3 font-sans leading-relaxed bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
               ${escapeHtml(varData.question)}
             </div>
 
             <!-- Кнопка подробного разбора решения -->
-            <div class="mb-3">
-              <button type="button" class="btn-open-solution w-full py-2 px-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium text-xs rounded-lg transition border border-blue-200/80 dark:border-blue-900/60 flex items-center justify-center gap-1.5">
-                <span>Подробный пошаговый разбор решения</span>
-                <span class="text-[10px] text-blue-500 dark:text-blue-400">→</span>
+            <!-- Кнопки интерактивной доски и подробного разбора решения -->
+            <div class="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button type="button" class="btn-open-whiteboard btn-neon-primary w-full py-2 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-semibold shadow-neon-cyan" title="Открыть интерактивную неоновую доску для самостоятельного черчения и записи решения">
+                <span>🎨 Чертить на доске</span>
+                ${hasDrawing ? '<span class="text-[10px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400 font-bold">✓ Есть чертеж</span>' : ''}
+              </button>
+              <button type="button" class="btn-open-solution btn-neon-emerald w-full py-2 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-semibold shadow-neon-emerald" title="Посмотреть пошаговое решение и теоретический справочник">
+                <span>🔍 Пошаговое решение</span>
+                <span class="text-[10px] text-emerald-300">→</span>
               </button>
             </div>
           </div>
 
           <!-- Кнопки управления порядком -->
-          <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
+          <div class="flex items-center justify-between border-t border-slate-800 pt-3 mt-1">
             <div class="flex gap-1 text-xs">
-              <button type="button" class="btn-move-up px-2 py-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}" title="Выше" ${index === 0 ? 'disabled' : ''}>
+              <button type="button" class="btn-move-up px-2 py-1 rounded text-slate-500 hover:text-slate-200 transition ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}" title="Выше" ${index === 0 ? 'disabled' : ''}>
                 ▲ Вверх
               </button>
-              <button type="button" class="btn-move-down px-2 py-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition ${index === selectedTasks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" title="Ниже" ${index === selectedTasks.length - 1 ? 'disabled' : ''}>
+              <button type="button" class="btn-move-down px-2 py-1 rounded text-slate-500 hover:text-slate-200 transition ${index === selectedTasks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" title="Ниже" ${index === selectedTasks.length - 1 ? 'disabled' : ''}>
                 ▼ Вниз
               </button>
             </div>
 
             <div class="flex gap-2 text-xs">
-              <button type="button" class="btn-edit-task text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded transition">
+              <button type="button" class="btn-edit-task text-slate-400 hover:text-white px-2 py-1 rounded transition">
                 Редактировать
               </button>
-              <button type="button" class="btn-remove-task text-slate-400 hover:text-red-600 px-2 py-1 rounded transition">
+              <button type="button" class="btn-remove-task text-slate-400 hover:text-rose-400 px-2 py-1 rounded transition">
                 Удалить
               </button>
             </div>
@@ -564,6 +642,17 @@ function renderBuilderTab() {
         </div>
       </div>
     `;
+
+    card.querySelector('.btn-toggle-graph-view')?.addEventListener('click', () => {
+      state.cardOverrides[task.id] = !isBlank;
+      renderBuilderTab();
+    });
+
+    card.querySelector('.btn-open-whiteboard')?.addEventListener('click', () => {
+      if (typeof StudentBoard !== 'undefined') {
+        StudentBoard.open(task, state.activeVariantView);
+      }
+    });
 
     card.querySelector('.btn-open-solution')?.addEventListener('click', () => {
       openSolutionModal(task, state.activeVariantView);
@@ -574,7 +663,6 @@ function renderBuilderTab() {
     card.querySelector('.btn-remove-task')?.addEventListener('click', () => removeTaskFromSelected(task.id));
     card.querySelector('.btn-edit-task')?.addEventListener('click', () => openEditTaskModal(task));
     card.querySelector('.copy-graph-btn')?.addEventListener('click', () => downloadSVG(svgCode, `graph_task_${index+1}.svg`));
-    card.querySelector('.open-plotter-btn')?.addEventListener('click', () => loadGraphIntoPlotter(varData.graphConfig));
 
     listContainer.appendChild(card);
   });
@@ -592,17 +680,21 @@ function moveTask(index, direction) {
 
 function removeTaskFromSelected(taskId) {
   state.selectedTaskIds = state.selectedTaskIds.filter(id => id !== taskId);
+  delete state.cardOverrides[taskId];
   state.saveState();
   renderBuilderTab();
+  renderBuilderAnswersPanel();
   showToast('Задание удалено из работы', 'info');
 }
 
-/* ==================== БАНК ЗАДАНИЙ ==================== */
+/* ==================== БАНК ЗАДАНИЙ (ВЫСОКАЯ ПРОИЗВОДИТЕЛЬНОСТЬ) ==================== */
 let bankFilters = {
   category: 'all',
   difficulty: 'all',
   searchQuery: ''
 };
+let bankVisibleCount = 18;
+let searchDebounceTimer = null;
 
 function initBankTab() {
   const categoryContainer = document.getElementById('bank-category-filters');
@@ -615,14 +707,15 @@ function initBankTab() {
     TASK_CATEGORIES.forEach(cat => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `category-filter-btn text-xs px-2.5 py-1 rounded-md border transition ${
+      btn.className = `category-filter-btn text-xs px-2.5 py-1 rounded-md border transition whitespace-nowrap ${
         bankFilters.category === cat.id
-          ? 'bg-blue-600 text-white border-blue-600 font-medium'
-          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300 font-normal'
+          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 font-bold shadow-neon-cyan'
+          : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200 font-normal'
       }`;
       btn.textContent = cat.name;
       btn.addEventListener('click', () => {
         bankFilters.category = cat.id;
+        bankVisibleCount = 18;
         initBankTab();
         renderBankList();
       });
@@ -633,20 +726,129 @@ function initBankTab() {
   if (difficultySelect) {
     difficultySelect.addEventListener('change', (e) => {
       bankFilters.difficulty = e.target.value;
+      bankVisibleCount = 18;
       renderBankList();
     });
   }
 
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      bankFilters.searchQuery = e.target.value.toLowerCase().trim();
-      renderBankList();
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        bankFilters.searchQuery = e.target.value.toLowerCase().trim();
+        bankVisibleCount = 18;
+        renderBankList();
+      }, 150);
     });
   }
 
   if (createNewBtn) {
     createNewBtn.addEventListener('click', () => openNewTaskModal());
   }
+}
+
+function createBankCardElement(task) {
+  const isSelected = state.selectedTaskIds.includes(task.id);
+  const firstVar = task.variants[0];
+
+  // Кэшированный легковесный SVG без тяжелых фильтров и без параллельных 30 анимаций
+  const svgCode = GraphRenderer.renderSVG({
+    ...firstVar.graphConfig,
+    cacheKey: `bank_prev_${task.id}_v0`,
+    width: 280,
+    height: 200,
+    theme: 'neon',
+    animated: false,
+    samplesCount: 120
+  });
+
+  const card = document.createElement('div');
+  card.className = `card-neon p-4 transition flex flex-col justify-between ${
+    isSelected ? 'border-cyan-400 ring-1 ring-cyan-500/40 shadow-neon-cyan' : ''
+  }`;
+  card.dataset.taskId = task.id;
+
+  card.innerHTML = `
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs px-2 py-0.5 rounded font-semibold ${getDifficultyBadgeClass(task.difficulty)}">
+          ${task.difficultyLabel || 'Базовый'}
+        </span>
+        <span class="text-xs text-slate-400 font-medium">
+          ${task.points || 1} б. · 4 варианта
+        </span>
+      </div>
+
+      <h4 class="font-bold text-sm text-white mb-1">${task.title}</h4>
+      <p class="text-xs text-slate-400 mb-3 line-clamp-2">${task.description || ''}</p>
+
+      <div class="w-full bg-[#070b16] p-1.5 rounded-lg border border-cyan-500/20 mb-3 flex justify-center overflow-hidden shadow-inner">
+        ${svgCode}
+      </div>
+    </div>
+
+    <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" class="btn-bank-whiteboard btn-neon-primary w-full py-1.5 px-2 text-xs rounded-lg transition flex items-center justify-center gap-1 font-semibold" title="Чертить график задания на интерактивной доске">
+          <span>🎨 Чертить</span>
+        </button>
+        <button type="button" class="btn-view-solution btn-neon-emerald w-full py-1.5 px-2 text-xs rounded-lg transition flex items-center justify-center gap-1 font-semibold" title="Открыть подробный пошаговый разбор">
+          <span>🔍 Решение</span>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between mt-1 text-xs">
+        <button type="button" class="btn-preview-task text-slate-400 hover:text-white transition">
+          Варианты (1–4)
+        </button>
+        <button type="button" class="btn-toggle-select px-3 py-1 font-semibold rounded-lg transition ${
+          isSelected
+            ? 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
+            : 'btn-neon-cyan'
+        }">
+          ${isSelected ? '✓ В работе' : '+ В работу'}
+        </button>
+      </div>
+    </div>
+  `;
+
+  card.querySelector('.btn-bank-whiteboard')?.addEventListener('click', () => {
+    if (typeof StudentBoard !== 'undefined') {
+      StudentBoard.open(task, 1);
+    }
+  });
+
+  card.querySelector('.btn-view-solution')?.addEventListener('click', () => {
+    openSolutionModal(task, 1);
+  });
+
+  // Быстрое переключение статуса карточки БЕЗ перерисовки всего банка
+  const selectBtn = card.querySelector('.btn-toggle-select');
+  selectBtn.addEventListener('click', () => {
+    const currentlySelected = state.selectedTaskIds.includes(task.id);
+    if (currentlySelected) {
+      state.selectedTaskIds = state.selectedTaskIds.filter(id => id !== task.id);
+      delete state.cardOverrides[task.id];
+      card.classList.remove('border-cyan-400', 'ring-1', 'ring-cyan-500/40', 'shadow-neon-cyan');
+      selectBtn.className = 'btn-toggle-select px-3 py-1 font-semibold rounded-lg transition btn-neon-cyan';
+      selectBtn.textContent = '+ В работу';
+      showToast('Задание удалено из работы', 'info');
+    } else {
+      state.selectedTaskIds.push(task.id);
+      card.classList.add('border-cyan-400', 'ring-1', 'ring-cyan-500/40', 'shadow-neon-cyan');
+      selectBtn.className = 'btn-toggle-select px-3 py-1 font-semibold rounded-lg transition bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30';
+      selectBtn.textContent = '✓ В работе';
+      showToast('Задание добавлено в работу', 'success');
+    }
+    state.saveState();
+    if (state.activeTab === 'builder') renderBuilderTab();
+  });
+
+  card.querySelector('.btn-preview-task').addEventListener('click', () => {
+    openEditTaskModal(task, true);
+  });
+
+  return card;
 }
 
 function renderBankList() {
@@ -658,8 +860,13 @@ function renderBankList() {
     if (bankFilters.category !== 'all' && task.category !== bankFilters.category) return false;
     if (bankFilters.difficulty !== 'all' && task.difficulty !== bankFilters.difficulty) return false;
     if (bankFilters.searchQuery) {
-      const text = `${task.title} ${task.description} ${task.variants.map(v => v.question).join(' ')}`.toLowerCase();
-      if (!text.includes(bankFilters.searchQuery)) return false;
+      const q = bankFilters.searchQuery;
+      if (task._searchIndex) {
+        if (!task._searchIndex.includes(q)) return false;
+      } else {
+        const text = `${task.title} ${task.description || ''} ${task.variants.map(v => v.question).join(' ')}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
     }
     return true;
   });
@@ -668,8 +875,8 @@ function renderBankList() {
 
   if (filtered.length === 0) {
     container.innerHTML = `
-      <div class="col-span-full p-8 text-center bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-        <p class="text-sm text-slate-500 dark:text-slate-400">Ни одно задание не соответствует выбранным критериям поиска.</p>
+      <div class="col-span-full p-8 text-center bg-slate-900/60 rounded-xl border border-dashed border-slate-800">
+        <p class="text-sm text-slate-400">Ни одно задание не соответствует выбранным критериям поиска.</p>
       </div>
     `;
     return;
@@ -677,85 +884,56 @@ function renderBankList() {
 
   container.innerHTML = '';
 
-  filtered.forEach(task => {
-    const isSelected = state.selectedTaskIds.includes(task.id);
-    const firstVar = task.variants[0];
+  const itemsToRender = filtered.slice(0, bankVisibleCount);
+  const fragment = document.createDocumentFragment();
 
-    const svgCode = GraphRenderer.renderSVG({
-      ...firstVar.graphConfig,
-      width: 280,
-      height: 200,
-      theme: state.currentTheme === 'dark' ? 'dark' : 'notebook',
-      animated: true
-    });
-
-    const card = document.createElement('div');
-    card.className = `card-neon p-4 transition flex flex-col justify-between ${
-      isSelected ? 'border-cyan-400 ring-1 ring-cyan-500/40 shadow-neon-cyan' : ''
-    }`;
-
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs px-2 py-0.5 rounded font-medium ${getDifficultyBadgeClass(task.difficulty)}">
-            ${task.difficultyLabel || 'Базовый'}
-          </span>
-          <span class="text-xs text-slate-400 font-medium">
-            ${task.points || 1} б. · 4 варианта
-          </span>
-        </div>
-
-        <h4 class="font-semibold text-sm text-slate-900 dark:text-white mb-1">${task.title}</h4>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-2">${task.description || ''}</p>
-
-        <div class="w-full bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-3 flex justify-center overflow-hidden">
-          ${svgCode}
-        </div>
-      </div>
-
-      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
-        <button type="button" class="btn-view-solution w-full py-1.5 px-2 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium text-xs rounded-lg transition border border-blue-200/80 dark:border-blue-900/60 flex items-center justify-center gap-1">
-          <span>Пошаговое решение</span>
-        </button>
-
-        <div class="flex items-center justify-between mt-1 text-xs">
-          <button type="button" class="btn-preview-task text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-            Варианты (1–4)
-          </button>
-          <button type="button" class="btn-toggle-select px-3 py-1 font-medium rounded-lg transition ${
-            isSelected
-              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-600'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }">
-            ${isSelected ? '✓ В работе' : '+ В работу'}
-          </button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('.btn-view-solution').addEventListener('click', () => {
-      openSolutionModal(task, 1);
-    });
-
-    card.querySelector('.btn-toggle-select').addEventListener('click', () => {
-      if (isSelected) {
-        state.selectedTaskIds = state.selectedTaskIds.filter(id => id !== task.id);
-        showToast('Задание удалено из работы', 'info');
-      } else {
-        state.selectedTaskIds.push(task.id);
-        showToast('Задание добавлено в работу', 'success');
-      }
-      state.saveState();
-      renderBankList();
-      if (state.activeTab === 'builder') renderBuilderTab();
-    });
-
-    card.querySelector('.btn-preview-task').addEventListener('click', () => {
-      openEditTaskModal(task, true);
-    });
-
-    container.appendChild(card);
+  itemsToRender.forEach(task => {
+    fragment.appendChild(createBankCardElement(task));
   });
+
+  container.appendChild(fragment);
+
+  // Пагинация / динамическая подгрузка следующих заданий
+  if (filtered.length > bankVisibleCount) {
+    const loadMoreBox = document.createElement('div');
+    loadMoreBox.id = 'bank-load-more-box';
+    loadMoreBox.className = 'col-span-full py-5 flex flex-col sm:flex-row items-center justify-center gap-3 bg-slate-950/70 rounded-xl border border-slate-800 p-4 mt-2';
+    loadMoreBox.innerHTML = `
+      <span class="text-xs text-slate-400">Показано <strong class="text-cyan-400">${itemsToRender.length}</strong> из <strong>${filtered.length}</strong> заданий</span>
+      <button type="button" id="bank-load-more-btn" class="btn-neon-cyan px-5 py-2 text-xs rounded-lg font-semibold flex items-center gap-1.5 shadow-neon-cyan">
+        <span>⚡ Показать ещё 18 заданий</span>
+      </button>
+      <button type="button" id="bank-load-all-btn" class="text-xs text-slate-400 hover:text-cyan-300 px-3 py-1.5 underline transition">
+        Показать все (${filtered.length})
+      </button>
+    `;
+    container.appendChild(loadMoreBox);
+
+    loadMoreBox.querySelector('#bank-load-more-btn').addEventListener('click', () => {
+      const nextBatch = filtered.slice(bankVisibleCount, bankVisibleCount + 18);
+      bankVisibleCount += 18;
+      const frag = document.createDocumentFragment();
+      nextBatch.forEach(t => frag.appendChild(createBankCardElement(t)));
+      container.insertBefore(frag, loadMoreBox);
+
+      const spanCount = loadMoreBox.querySelector('span');
+      if (spanCount) {
+        spanCount.innerHTML = `Показано <strong class="text-cyan-400">${Math.min(bankVisibleCount, filtered.length)}</strong> из <strong>${filtered.length}</strong> заданий`;
+      }
+      if (bankVisibleCount >= filtered.length) {
+        loadMoreBox.remove();
+      }
+    });
+
+    loadMoreBox.querySelector('#bank-load-all-btn').addEventListener('click', () => {
+      const remaining = filtered.slice(bankVisibleCount);
+      bankVisibleCount = filtered.length;
+      const frag = document.createDocumentFragment();
+      remaining.forEach(t => frag.appendChild(createBankCardElement(t)));
+      container.insertBefore(frag, loadMoreBox);
+      loadMoreBox.remove();
+    });
+  }
 }
 
 /* ==================== МОДАЛЬНОЕ ОКНО ПОДРОБНОГО РЕШЕНИЯ ==================== */
@@ -893,474 +1071,12 @@ function renderSolutionGraph() {
     ...varData.graphConfig,
     width: 330,
     height: 250,
-    theme: state.currentTheme === 'dark' ? 'dark' : 'notebook',
+    theme: 'neon',
     animated: true,
     highlightStep: currentSolutionHighlight
   });
 
   box.innerHTML = svg;
-}
-
-/* ==================== ЛАБОРАТОРИЯ ГРАФИКОВ И АНИМАЦИЯ ==================== */
-let plotterState = {
-  fn1: 'x^2 - 2*x - 3',
-  fn2: '',
-  color1: '#00f0ff',
-  color2: '#ff2d75',
-  xMin: -5,
-  xMax: 5,
-  yMin: -5,
-  yMax: 5,
-  stepX: 1,
-  stepY: 1,
-  paramA: 1.0,
-  isAnimating: false,
-  animId: null,
-  animPhase: 0,
-  points: [
-    { x: 1, y: -4, label: 'B(1; -4)', color: '#ff2d75', dashedLines: true },
-    { x: -1, y: 0, label: '(-1; 0)', color: '#10e897' },
-    { x: 3, y: 0, label: '(3; 0)', color: '#10e897' }
-  ],
-  asymptotes: []
-};
-
-function initPlotterTab() {
-  const getEl = (id) => document.getElementById(id);
-
-  const inputFn1 = getEl('plotter-fn1');
-  const inputFn2 = getEl('plotter-fn2');
-  const inputColor1 = getEl('plotter-color1');
-  const inputColor2 = getEl('plotter-color2');
-  const inputXMin = getEl('plotter-xmin');
-  const inputXMax = getEl('plotter-xmax');
-  const inputYMin = getEl('plotter-ymin');
-  const inputYMax = getEl('plotter-ymax');
-  const addPointBtn = getEl('plotter-add-point-btn');
-  const paramSlider = getEl('plotter-param-slider');
-  const paramBadge = getEl('param-val-badge');
-  const animToggleBtn = getEl('plotter-anim-toggle');
-  const reanimateBtn = getEl('plotter-reanimate-btn');
-
-  // Быстрые шаблоны
-  document.querySelectorAll('.plotter-quick-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const formula = btn.dataset.formula;
-      if (formula && inputFn1) {
-        inputFn1.value = formula;
-        plotterState.fn1 = formula;
-        updatePlotterPreview();
-      }
-    });
-  });
-
-  const syncInputs = () => {
-    if (inputFn1) plotterState.fn1 = inputFn1.value;
-    if (inputFn2) plotterState.fn2 = inputFn2.value;
-    if (inputColor1) plotterState.color1 = inputColor1.value;
-    if (inputColor2) plotterState.color2 = inputColor2.value;
-    if (inputXMin) plotterState.xMin = parseFloat(inputXMin.value) || -5;
-    if (inputXMax) plotterState.xMax = parseFloat(inputXMax.value) || 5;
-    if (inputYMin) plotterState.yMin = parseFloat(inputYMin.value) || -5;
-    if (inputYMax) plotterState.yMax = parseFloat(inputYMax.value) || 5;
-    updatePlotterPreview();
-  };
-
-  [inputFn1, inputFn2, inputColor1, inputColor2, inputXMin, inputXMax, inputYMin, inputYMax].forEach(el => {
-    if (el) el.addEventListener('input', syncInputs);
-  });
-
-  // Ползунок параметра
-  if (paramSlider) {
-    paramSlider.addEventListener('input', (e) => {
-      plotterState.paramA = parseFloat(e.target.value);
-      if (paramBadge) paramBadge.textContent = plotterState.paramA.toFixed(1);
-      applyParamToFunction();
-    });
-  }
-
-  // Кнопка пуска/паузы живой анимации
-  if (animToggleBtn) {
-    animToggleBtn.addEventListener('click', () => {
-      plotterState.isAnimating = !plotterState.isAnimating;
-      const playIcon = document.getElementById('anim-play-icon');
-      const playText = document.getElementById('anim-play-text');
-
-      if (plotterState.isAnimating) {
-        if (playIcon) playIcon.textContent = '⏸';
-        if (playText) playText.textContent = 'Пауза';
-        startPlotterAnimation();
-      } else {
-        if (playIcon) playIcon.textContent = '▶';
-        if (playText) playText.textContent = 'Запустить';
-        stopPlotterAnimation();
-      }
-    });
-  }
-
-  if (reanimateBtn) {
-    reanimateBtn.addEventListener('click', () => {
-      updatePlotterPreview(true);
-    });
-  }
-
-  if (addPointBtn) {
-    addPointBtn.addEventListener('click', () => {
-      plotterState.points.push({ x: 0, y: 0, label: '(0; 0)', color: '#dc2626', dashedLines: true });
-      renderPlotterPointsList();
-      updatePlotterPreview();
-    });
-  }
-
-  const createTaskFromPlotterBtn = getEl('plotter-create-task-btn');
-  if (createTaskFromPlotterBtn) {
-    createTaskFromPlotterBtn.addEventListener('click', () => {
-      openNewTaskModalWithGraph(getPlotterConfig(380, 300));
-    });
-  }
-
-  renderPlotterPointsList();
-}
-
-function applyParamToFunction() {
-  const a = plotterState.paramA;
-  let raw = plotterState.fn1;
-  // Если формула содержит 'a', подставляем число
-  if (raw.includes('a')) {
-    const substituted = raw.replace(/\ba\b/g, `(${a})`);
-    updatePlotterPreviewWithFormula(substituted);
-  } else {
-    // Иначе динамически масштабируем или сдвигаем параболу/волну
-    updatePlotterPreview();
-  }
-}
-
-function startPlotterAnimation() {
-  if (plotterState.animId) cancelAnimationFrame(plotterState.animId);
-
-  const loop = () => {
-    if (!plotterState.isAnimating) return;
-
-    plotterState.animPhase += 0.04;
-    // Колебание параметра a от -2.5 до 2.5
-    plotterState.paramA = Math.sin(plotterState.animPhase) * 2.5;
-
-    const slider = document.getElementById('plotter-param-slider');
-    const badge = document.getElementById('param-val-badge');
-    if (slider) slider.value = plotterState.paramA;
-    if (badge) badge.textContent = plotterState.paramA.toFixed(1);
-
-    // Динамически перестраиваем график
-    updatePlotterPreview(false);
-
-    plotterState.animId = requestAnimationFrame(loop);
-  };
-
-  plotterState.animId = requestAnimationFrame(loop);
-}
-
-function stopPlotterAnimation() {
-  if (plotterState.animId) {
-    cancelAnimationFrame(plotterState.animId);
-    plotterState.animId = null;
-  }
-}
-
-function getPlotterConfig(width = 460, height = 360, animated = false) {
-  let fnFormula = plotterState.fn1;
-  const a = plotterState.paramA;
-
-  if (fnFormula.includes('a')) {
-    fnFormula = fnFormula.replace(/\ba\b/g, `(${a.toFixed(2)})`);
-  }
-
-  const functions = [];
-  if (fnFormula) {
-    functions.push({ fn: fnFormula, color: plotterState.color1, width: 2.5, label: `y₁ = ${fnFormula}` });
-  }
-  if (plotterState.fn2) {
-    functions.push({ fn: plotterState.fn2, color: plotterState.color2, width: 2.2, label: `y₂ = ${plotterState.fn2}` });
-  }
-
-  return {
-    width,
-    height,
-    xMin: plotterState.xMin,
-    xMax: plotterState.xMax,
-    yMin: plotterState.yMin,
-    yMax: plotterState.yMax,
-    stepX: plotterState.stepX,
-    stepY: plotterState.stepY,
-    functions,
-    points: plotterState.points,
-    asymptotes: plotterState.asymptotes,
-    theme: state.currentTheme === 'dark' ? 'dark' : 'notebook',
-    animated: animated
-  };
-}
-
-function updatePlotterPreview(animated = false) {
-  const previewBox = document.getElementById('plotter-preview-container');
-  if (!previewBox) return;
-
-  try {
-    const config = getPlotterConfig(460, 360, animated);
-    const svgCode = GraphRenderer.renderSVG(config);
-    previewBox.innerHTML = svgCode;
-
-    const analysisBox = document.getElementById('plotter-analysis-box');
-    if (analysisBox && config.functions[0]) {
-      const fn = MathEngine.compile(config.functions[0].fn);
-      if (fn) {
-        const analysis = MathEngine.analyze(fn, plotterState.xMin, plotterState.xMax);
-        let info = '';
-        if (analysis.zeros.length > 0) {
-          info += `<p><strong>Примерные нули функции (y = 0):</strong> ${analysis.zeros.map(z => `x ≈ ${z.x}`).join(', ')}</p>`;
-        }
-        if (analysis.extrema.length > 0) {
-          info += `<p><strong>Точки экстремума:</strong> ${analysis.extrema.map(e => `${e.type.toUpperCase()} в точке x ≈ ${e.x} (y ≈ ${e.y})`).join(', ')}</p>`;
-        }
-        analysisBox.innerHTML = info || '<p class="text-slate-400">Нулей на видимом интервале не обнаружено</p>';
-      }
-    }
-  } catch (e) {
-    previewBox.innerHTML = `<div class="text-red-500 p-4 text-xs">Ошибка построения: ${e.message}</div>`;
-  }
-}
-
-function renderPlotterPointsList() {
-  const container = document.getElementById('plotter-points-list');
-  if (!container) return;
-
-  container.innerHTML = '';
-  plotterState.points.forEach((pt, idx) => {
-    const row = document.createElement('div');
-    row.className = 'flex items-center gap-2 mb-2 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs';
-    row.innerHTML = `
-      <div class="flex items-center gap-1">
-        <label class="text-slate-400">X:</label>
-        <input type="number" step="0.5" value="${pt.x}" class="pt-x w-14 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
-      </div>
-      <div class="flex items-center gap-1">
-        <label class="text-slate-400">Y:</label>
-        <input type="number" step="0.5" value="${pt.y}" class="pt-y w-14 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
-      </div>
-      <div class="flex items-center gap-1 flex-1">
-        <label class="text-slate-400">Текст:</label>
-        <input type="text" value="${pt.label || ''}" placeholder="(1; 2)" class="pt-label w-full px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100">
-      </div>
-      <button type="button" class="pt-del text-red-500 hover:text-red-700 px-1 font-bold" title="Удалить точку">✕</button>
-    `;
-
-    row.querySelector('.pt-x').addEventListener('input', (e) => {
-      pt.x = parseFloat(e.target.value) || 0;
-      updatePlotterPreview();
-    });
-    row.querySelector('.pt-y').addEventListener('input', (e) => {
-      pt.y = parseFloat(e.target.value) || 0;
-      updatePlotterPreview();
-    });
-    row.querySelector('.pt-label').addEventListener('input', (e) => {
-      pt.label = e.target.value;
-      updatePlotterPreview();
-    });
-    row.querySelector('.pt-del').addEventListener('click', () => {
-      plotterState.points.splice(idx, 1);
-      renderPlotterPointsList();
-      updatePlotterPreview();
-    });
-
-    container.appendChild(row);
-  });
-}
-
-function loadGraphIntoPlotter(graphConfig) {
-  if (!graphConfig) return;
-  plotterState.xMin = graphConfig.xMin || -5;
-  plotterState.xMax = graphConfig.xMax || 5;
-  plotterState.yMin = graphConfig.yMin || -5;
-  plotterState.yMax = graphConfig.yMax || 5;
-
-  if (graphConfig.functions && graphConfig.functions[0]) {
-    plotterState.fn1 = graphConfig.functions[0].fn;
-    plotterState.color1 = graphConfig.functions[0].color || '#2563eb';
-  }
-  if (graphConfig.functions && graphConfig.functions[1]) {
-    plotterState.fn2 = graphConfig.functions[1].fn;
-    plotterState.color2 = graphConfig.functions[1].color || '#dc2626';
-  } else {
-    plotterState.fn2 = '';
-  }
-
-  plotterState.points = JSON.parse(JSON.stringify(graphConfig.points || []));
-  plotterState.asymptotes = JSON.parse(JSON.stringify(graphConfig.asymptotes || []));
-
-  switchTab('plotter');
-  initPlotterTab();
-  updatePlotterPreview(true);
-  showToast('График загружен в лабораторию', 'info');
-}
-
-/* ==================== ПРЕДПРОСМОТР И ПЕЧАТЬ (А4) ==================== */
-function renderPrintPreview() {
-  const container = document.getElementById('print-preview-container');
-  if (!container) return;
-
-  const selectedTasks = state.selectedTaskIds
-    .map(id => state.taskBank.find(t => t.id === id))
-    .filter(Boolean);
-
-  if (selectedTasks.length === 0) {
-    container.innerHTML = `
-      <div class="p-8 text-center bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-        <p class="text-sm text-slate-500">В работе нет заданий для печати. Сначала добавьте задания в конструкторе.</p>
-      </div>
-    `;
-    return;
-  }
-
-  const s = state.workSettings;
-  let html = '';
-
-  for (let vNum = 1; vNum <= state.variantCount; vNum++) {
-    html += `
-      <div class="a4-sheet ${s.layoutMode === 'one-per-page' ? 'page-break' : 'mb-8'} bg-white text-slate-900 shadow-xl rounded-xl p-8 border border-slate-200">
-        <!-- Шапка учебного заведения -->
-        <div class="text-center border-b-2 border-slate-900 pb-3 mb-4">
-          <div class="text-xs uppercase tracking-wider font-bold text-slate-600">${escapeHtml(s.collegeName)}</div>
-          <h2 class="text-lg font-extrabold text-slate-900 uppercase tracking-tight mt-1">${escapeHtml(s.topic)}</h2>
-          <div class="flex justify-between items-center text-xs font-semibold text-slate-700 mt-2">
-            <span>Дисциплина: <strong>${escapeHtml(s.subject)}</strong></span>
-            <span class="text-sm font-black px-3 py-0.5 border-2 border-slate-900 rounded">ВАРИАНТ № ${vNum}</span>
-            <span>Время выполнения: <strong>${escapeHtml(s.timeLimit)}</strong></span>
-          </div>
-        </div>
-
-        <!-- Поля для студента -->
-        ${s.showStudentFields ? `
-          <div class="grid grid-cols-12 gap-2 text-xs border border-slate-300 rounded p-2 mb-4 bg-slate-50/50">
-            <div class="col-span-6 flex items-center gap-1">
-              <span class="font-bold text-slate-600">Студент:</span>
-              <span class="border-b border-dotted border-slate-400 flex-1 h-4"></span>
-            </div>
-            <div class="col-span-3 flex items-center gap-1">
-              <span class="font-bold text-slate-600">Группа:</span>
-              <span class="border-b border-dotted border-slate-400 flex-1 h-4"></span>
-            </div>
-            <div class="col-span-3 flex items-center gap-1">
-              <span class="font-bold text-slate-600">Дата:</span>
-              <span class="border-b border-dotted border-slate-400 flex-1 h-4"></span>
-            </div>
-          </div>
-        ` : ''}
-
-        <!-- Задания варианта -->
-        <div class="tasks-print-list space-y-5">
-    `;
-
-    selectedTasks.forEach((task, tIdx) => {
-      const varData = task.variants[(vNum - 1) % task.variants.length];
-      
-      const svgCode = GraphRenderer.renderSVG({
-        ...varData.graphConfig,
-        width: 320,
-        height: 230,
-        theme: 'clean',
-        animated: false
-      });
-
-      html += `
-        <div class="print-task-block flex flex-row gap-4 items-start border-b border-slate-200 pb-4">
-          <div class="w-5/12 flex-shrink-0 flex justify-center bg-slate-50 p-1.5 rounded border border-slate-200">
-            ${svgCode}
-          </div>
-          <div class="w-7/12 flex-1">
-            <div class="flex justify-between items-center mb-1">
-              <h4 class="font-bold text-xs text-slate-900">
-                Задание ${tIdx + 1}. <span class="font-medium text-slate-700">${escapeHtml(task.title)}</span>
-              </h4>
-              <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                (${task.points || 1} б.)
-              </span>
-            </div>
-            <div class="text-[11px] leading-relaxed text-slate-800 whitespace-pre-line mb-3 font-sans">
-              ${escapeHtml(varData.question)}
-            </div>
-            <div class="border border-dashed border-slate-300 rounded p-2 text-[10px] text-slate-400 h-16 flex items-start">
-              Место для краткого ответа / решения:
-            </div>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `
-        </div>
-
-        <!-- Подвал со шкалой -->
-        <div class="mt-4 pt-3 border-t border-slate-300 flex justify-between items-center text-[10px] text-slate-600">
-          <div>Критерии оценки: <strong>${escapeHtml(s.gradingScale)}</strong></div>
-          <div class="border border-slate-900 px-3 py-1 font-bold text-slate-900">
-            ОЦЕНКА: _______ / Подпись преподавателя: _______
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Лист ответов для преподавателя
-  if (s.showAnswersSheet) {
-    html += `
-      <div class="a4-sheet page-break bg-white text-slate-900 shadow-xl rounded-xl p-8 border border-slate-300 mt-8">
-        <div class="text-center border-b-2 border-emerald-700 pb-3 mb-6">
-          <span class="text-xs uppercase tracking-wider font-bold text-emerald-700">Только для преподавателя</span>
-          <h2 class="text-xl font-black text-slate-900 mt-1">КЛЮЧИ И ПОДРОБНЫЕ РЕШЕНИЯ К ВАРИАНТАМ</h2>
-          <div class="text-xs text-slate-600 mt-1">${escapeHtml(s.topic)}</div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    `;
-
-    for (let vNum = 1; vNum <= state.variantCount; vNum++) {
-      html += `
-        <div class="border border-slate-300 rounded-lg p-4 bg-slate-50/50">
-          <h3 class="font-extrabold text-sm text-slate-900 pb-2 mb-3 border-b border-slate-200 flex justify-between">
-            <span>ВАРИАНТ № ${vNum}</span>
-            <span class="text-xs font-normal text-slate-500">Заданий: ${selectedTasks.length}</span>
-          </h3>
-          <div class="space-y-4">
-      `;
-
-      selectedTasks.forEach((task, tIdx) => {
-        const varData = task.variants[(vNum - 1) % task.variants.length];
-        html += `
-          <div class="text-xs">
-            <div class="font-bold text-slate-800 mb-0.5">№ ${tIdx + 1} (${escapeHtml(task.title)}):</div>
-            <div class="bg-white p-2 rounded border border-slate-200 text-slate-900 font-mono text-[11px] whitespace-pre-line mb-1">
-              ${escapeHtml(varData.answer)}
-            </div>
-            ${s.showCriteria && varData.solution ? `
-              <div class="text-[10px] text-slate-600 leading-tight bg-slate-100/70 p-1.5 rounded">
-                <strong>Решение:</strong> ${escapeHtml(varData.solution)}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      });
-
-      html += `
-          </div>
-        </div>
-      `;
-    }
-
-    html += `
-        </div>
-      </div>
-    `;
-  }
-
-  container.innerHTML = html;
 }
 
 /* ==================== СОЗДАНИЕ / РЕДАКТИРОВАНИЕ ЗАДАНИЯ ==================== */
@@ -1542,55 +1258,6 @@ function saveTaskFromModal() {
   document.getElementById('task-modal').classList.add('hidden');
   renderCurrentTab();
   showToast('Задание успешно сохранено!', 'success');
-}
-
-/* ==================== ЭКСПОРТ / ИМПОРТ ==================== */
-function exportProjectJSON() {
-  const data = {
-    appName: 'ГрафМастер СПО',
-    version: '2.0',
-    exportDate: new Date().toISOString(),
-    workSettings: state.workSettings,
-    selectedTaskIds: state.selectedTaskIds,
-    taskBank: state.taskBank
-  };
-
-  const jsonStr = JSON.stringify(data, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `grafmaster_variant_${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Файл проекта успешно скачан', 'success');
-}
-
-function importProjectJSON(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (data.taskBank && data.selectedTaskIds) {
-        state.taskBank = data.taskBank;
-        state.selectedTaskIds = data.selectedTaskIds;
-        if (data.workSettings) state.workSettings = data.workSettings;
-        state.saveState();
-        initWorkSettingsForm();
-        renderCurrentTab();
-        showToast('Проект успешно импортирован!', 'success');
-      } else {
-        alert('Некорректный формат файла проекта');
-      }
-    } catch (err) {
-      alert('Ошибка при чтении файла JSON: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
 }
 
 function downloadSVG(svgString, fileName = 'graph.svg') {

@@ -8,8 +8,13 @@ class MathEngine {
   static compile(exprStr) {
     if (!exprStr || typeof exprStr !== 'string') return null;
 
-    let s = exprStr.trim();
-    if (!s) return null;
+    const trimmed = exprStr.trim();
+    if (!trimmed) return null;
+
+    if (!MathEngine._fnCache) MathEngine._fnCache = new Map();
+    if (MathEngine._fnCache.has(trimmed)) return MathEngine._fnCache.get(trimmed);
+
+    let s = trimmed;
 
     s = s.replace(/(\d+),(\d+)/g, '$1.$2');
     s = s.replace(/\|([^|]+)\|/g, 'abs($1)');
@@ -17,6 +22,9 @@ class MathEngine {
     s = s.replace(/([)])(\d+|[a-zA-Z(])/g, '$1*$2');
     s = s.replace(/([xX])([a-zA-Z(])/g, '$1*$2');
     s = s.replace(/\^/g, '**');
+    // Очистка ошибочных висячих знаков умножения (например '*x + 3' -> 'x + 3')
+    s = s.replace(/^\s*\*+/g, '');
+    s = s.replace(/([+\-(=\/])\s*\*+/g, '$1');
 
     s = s.replace(/\bpi\b/gi, 'Math.PI');
     s = s.replace(/\be\b/g, 'Math.E');
@@ -50,6 +58,7 @@ class MathEngine {
     try {
       const fn = new Function('x', `"use strict"; return (${s});`);
       fn(1);
+      MathEngine._fnCache.set(trimmed, fn);
       return fn;
     } catch (err) {
       console.warn('Ошибка компиляции формулы:', exprStr, s, err);
@@ -113,6 +122,7 @@ class GraphRenderer {
    */
   static renderSVG(options = {}) {
     const {
+      cacheKey = null,
       width = 400,
       height = 320,
       xMin = -6,
@@ -133,8 +143,14 @@ class GraphRenderer {
       showOrigin = true,
       animated = true,
       highlightStep = null,
+      blankGrid = false, // Режим чистой сетки для самостоятельного построения студентом
+      samplesCount = null,
       animationDuration = 2.8 // Медленная, плавная, шелковистая анимация (2.8s)
     } = options;
+
+    if (cacheKey && GraphRenderer._svgCache && GraphRenderer._svgCache[cacheKey]) {
+      return GraphRenderer._svgCache[cacheKey];
+    }
 
     const padding = { top: 24, right: 24, bottom: 24, left: 24 };
     const innerW = width - padding.left - padding.right;
@@ -159,7 +175,7 @@ class GraphRenderer {
 
     const graphId = 'g_' + Math.random().toString(36).substring(2, 9);
 
-    let svg = `<svg id="${graphId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" class="math-graph-svg" style="background:${bgColor}; border-radius: 10px; font-family: 'JetBrains Mono', 'Inter', monospace; user-select: none;">`;
+    let svg = `<svg id="${graphId}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" class="math-graph-svg" style="background:${bgColor}; border-radius: 10px; font-family: 'JetBrains Mono', 'Inter', monospace; user-select: none; max-width: 100%; height: auto; display: block;">`;
 
     // Определения неонового свечения и фильтров
     svg += `<defs>
@@ -273,6 +289,17 @@ class GraphRenderer {
       svg += `</g>`;
     }
 
+    // Если активен режим чистой сетки для самостоятельного черчения студентом:
+    if (blankGrid) {
+      svg += `
+        <g class="blank-grid-hint" opacity="0.8">
+          <rect x="${padding.left + 6}" y="${padding.top + 6}" width="168" height="22" rx="6" fill="rgba(0, 240, 255, 0.12)" stroke="rgba(0, 240, 255, 0.35)" stroke-width="1" />
+          <text x="${padding.left + 14}" y="${padding.top + 21}" fill="#00f0ff" font-size="9.5" font-weight="bold">✏️ Сетка для черчения</text>
+        </g>
+      </svg>`;
+      return svg;
+    }
+
     // Асимптоты
     if (asymptotes && asymptotes.length > 0) {
       svg += `<g class="asymptotes" stroke="#f43f5e" stroke-width="1.4" stroke-dasharray="4,4">`;
@@ -311,7 +338,7 @@ class GraphRenderer {
     }
 
     // Построение кривых функций с медленной плавной анимацией
-    const numSamples = Math.min(800, innerW * 2);
+    const numSamples = samplesCount || Math.min(320, Math.round(innerW * 1.2));
     const sampleStep = (xMax - xMin) / numSamples;
 
     svg += `<g class="curves">`;
@@ -333,6 +360,24 @@ class GraphRenderer {
 
       for (let i = 0; i <= numSamples; i++) {
         const x = xMin + i * sampleStep;
+
+        if (fObj.xMin !== undefined && x < fObj.xMin - 1e-6) {
+          if (currentPath.length > 0) {
+            paths.push(currentPath);
+            currentPath = [];
+          }
+          lastY = null;
+          continue;
+        }
+        if (fObj.xMax !== undefined && x > fObj.xMax + 1e-6) {
+          if (currentPath.length > 0) {
+            paths.push(currentPath);
+            currentPath = [];
+          }
+          lastY = null;
+          continue;
+        }
+
         const y = MathEngine.evalAt(fn, x);
 
         if (y === null || isNaN(y) || !isFinite(y)) {
@@ -427,6 +472,10 @@ class GraphRenderer {
     }
 
     svg += `</svg>`;
+    if (cacheKey) {
+      if (!GraphRenderer._svgCache) GraphRenderer._svgCache = {};
+      GraphRenderer._svgCache[cacheKey] = svg;
+    }
     return svg;
   }
 
