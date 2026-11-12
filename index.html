@@ -64,6 +64,9 @@
           <button type="button" data-tab="bank" class="nav-tab-btn">
             📚 Банк заданий (18 тем)
           </button>
+          <button type="button" id="nav-open-whiteboard-btn" class="nav-tab-btn text-cyan-300 hover:text-white flex items-center gap-1 font-bold">
+            🎨 Доска для черчения
+          </button>
         </nav>
 
         <!-- Правые действия: Кнопка генератора вариантов -->
@@ -131,10 +134,10 @@
 
           <!-- Правая группа: Режим студента (чистая сетка), Ответы и Очистка -->
           <div class="flex items-center gap-2 flex-wrap">
-            <button id="builder-mode-toggle-btn" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-500/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/60 transition flex items-center gap-1.5" title="В режиме студента показывается координатная сетка для самостоятельного черчения">
-              <span id="builder-mode-icon">✏️</span>
-              <span id="builder-mode-text">Режим черчения (сетка)</span>
-            </button>
+            <button id="builder-mode-toggle-btn" type="button" class="btn-neon-primary px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-neon-cyan transition" title="Открыть интерактивную неоновую доску для черчения">
+                <span>🎨</span>
+                <span id="builder-mode-text">Доска для черчения</span>
+              </button>
 
             <button id="toggle-builder-answers-btn" type="button" class="btn-neon-emerald px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition">
               <span>🔑</span>
@@ -548,10 +551,22 @@
         </div>
 
         <!-- Толщина линии -->
-        <div class="flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
-          <button type="button" data-size="2" class="wb-size-btn px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 text-[11px] transition">2px</button>
-          <button type="button" data-size="4" class="wb-size-btn px-2 py-1 rounded-lg border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold text-[11px] transition">4px</button>
-          <button type="button" data-size="8" class="wb-size-btn px-2 py-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 text-[11px] transition">8px</button>
+        <!-- Гибкая регулировка толщины полоски черчения со слайдером и предпросмотром -->
+        <div class="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800">
+          <span class="text-[11px] text-slate-400 hidden sm:inline">Толщина:</span>
+          
+          <div class="flex items-center gap-1.5">
+            <span id="wb-size-dot-preview" class="rounded-full bg-cyan-400 inline-block transition-all shadow-neon-cyan flex-shrink-0" style="width: 4px; height: 4px;"></span>
+            <input id="wb-size-slider" type="range" min="1" max="28" step="1" value="4" class="w-16 sm:w-24 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg" title="Плавная регулировка толщины">
+            <span id="wb-size-val" class="font-mono text-cyan-300 font-bold text-xs w-8 text-center">4px</span>
+          </div>
+
+          <div class="flex items-center gap-0.5 ml-1 border-l border-slate-800 pl-1.5">
+            <button type="button" data-size="2" class="wb-size-btn px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900 text-slate-300 text-[10px] hover:border-cyan-400 hover:text-cyan-300 transition" title="Тонкая">2</button>
+            <button type="button" data-size="4" class="wb-size-btn active px-1.5 py-0.5 rounded border border-cyan-400 bg-cyan-950 text-cyan-300 font-bold text-[10px] transition" title="Средняя">4</button>
+            <button type="button" data-size="8" class="wb-size-btn px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900 text-slate-300 text-[10px] hover:border-cyan-400 hover:text-cyan-300 transition" title="Полужирная">8</button>
+            <button type="button" data-size="14" class="wb-size-btn px-1.5 py-0.5 rounded border border-slate-800 bg-slate-900 text-slate-300 text-[10px] hover:border-cyan-400 hover:text-cyan-300 transition" title="Маркер">14</button>
+          </div>
         </div>
 
         <!-- История и очистка -->
@@ -595,6 +610,48 @@
           <!-- Слой 3: Интерактивный Canvas для студента -->
           <canvas id="wb-draw-canvas" class="absolute inset-0 w-full h-full z-20 cursor-crosshair touch-none"></canvas>
 
+          <!-- Выделенное окно ввода текста и формул (без всплывающего prompt) -->
+          <div id="wb-text-editor-box" class="absolute z-40 bg-[#0b1222]/95 border-2 border-cyan-400 p-3 rounded-xl shadow-2xl backdrop-blur-md hidden transition-all" style="width: 320px; left: 50px; top: 50px;">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                <span>✍️</span> <span>Текст / Пояснение к решению</span>
+              </span>
+              <button id="wb-text-cancel-btn" type="button" class="w-5 h-5 rounded hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs" title="Закрыть (Esc)">✕</button>
+            </div>
+
+            <textarea id="wb-text-input" rows="2" placeholder="например, Вершина параболы (1; -4), асимптота x = 0" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-950 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none mb-2 resize-none"></textarea>
+
+            <!-- Быстрые математические символы для вставки в 1 клик -->
+            <div class="flex flex-wrap gap-1 mb-2.5">
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="²">x²</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="³">x³</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="√">√</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="π">π</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="∞">∞</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="±">±</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="≥">≥</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="≤">≤</button>
+              <button type="button" class="wb-math-sym text-[11px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-400 hover:text-cyan-300 text-slate-300 font-mono transition" data-sym="f(x)=">f(x)=</button>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span>Шрифт:</span>
+                <select id="wb-text-size-select" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 text-xs">
+                  <option value="13">13 px</option>
+                  <option value="16" selected>16 px</option>
+                  <option value="20">20 px</option>
+                  <option value="26">26 px</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button id="wb-text-cancel-btn-2" type="button" class="px-2.5 py-1 rounded-lg border border-slate-800 text-slate-400 hover:text-white text-xs">Отмена</button>
+                <button id="wb-text-confirm-btn" type="button" class="btn-neon-primary px-3 py-1 rounded-lg text-xs font-bold shadow-neon-cyan">✓ Нанести</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Плашка текущих координат курсора (x, y) -->
           <div id="wb-coords-tooltip" class="absolute bottom-3 right-3 px-3 py-1 bg-slate-950/90 border border-cyan-500/40 rounded-lg text-cyan-300 font-mono text-xs shadow-lg pointer-events-none z-30">
             x: 0.00, y: 0.00
@@ -611,9 +668,9 @@
     </div>
   </div>
 
-  <script src="js/math-engine.js"></script>
-  <script src="js/student-board.js"></script>
-  <script src="js/task-database.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/math-engine.js?v=7"></script>
+  <script src="js/student-board.js?v=7"></script>
+  <script src="js/task-database.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
 </body>
 </html>

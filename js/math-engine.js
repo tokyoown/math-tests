@@ -22,6 +22,8 @@ class MathEngine {
     s = s.replace(/([)])(\d+|[a-zA-Z(])/g, '$1*$2');
     s = s.replace(/([xX])([a-zA-Z(])/g, '$1*$2');
     s = s.replace(/\^/g, '**');
+    // Исправление синтаксиса JS ES2016: '-x**2' недопустимо без скобок, заменяем на '-(x**2)'
+    s = s.replace(/(^|[^a-zA-Z0-9_)])\s*-\s*([a-zA-Z0-9_]+)\s*\*\*\s*(\d+)/g, '$1-($2**$3)');
     // Очистка ошибочных висячих знаков умножения (например '*x + 3' -> 'x + 3')
     s = s.replace(/^\s*\*+/g, '');
     s = s.replace(/([+\-(=\/])\s*\*+/g, '$1');
@@ -252,8 +254,14 @@ class GraphRenderer {
       const zeroY = Math.max(padding.top, Math.min(height - padding.bottom, originPixelY));
       svg += `<rect x="${padding.left}" y="${padding.top}" width="${innerW}" height="${zeroY - padding.top}" fill="rgba(16, 232, 151, 0.08)" />`;
       svg += `<rect x="${padding.left}" y="${zeroY}" width="${innerW}" height="${height - padding.bottom - zeroY}" fill="rgba(244, 63, 94, 0.08)" />`;
-      svg += `<text x="${width - padding.right - 8}" y="${padding.top + 14}" fill="#10e897" font-size="10" font-weight="600" text-anchor="end">f(x) > 0</text>`;
-      svg += `<text x="${width - padding.right - 8}" y="${height - padding.bottom - 8}" fill="#f43f5e" font-size="10" font-weight="600" text-anchor="end">f(x) < 0</text>`;
+      svg += `<g class="neon-fade">
+        <rect x="${padding.left + 6}" y="${padding.top + 28}" width="54" height="16" rx="4" fill="rgba(16, 232, 151, 0.25)" stroke="#10e897" stroke-width="1" />
+        <text x="${padding.left + 33}" y="${padding.top + 40}" fill="#10e897" font-size="9.5" font-weight="700" text-anchor="middle">f(x) > 0</text>
+      </g>`;
+      svg += `<g class="neon-fade">
+        <rect x="${padding.left + 6}" y="${height - padding.bottom - 22}" width="54" height="16" rx="4" fill="rgba(244, 63, 94, 0.25)" stroke="#f43f5e" stroke-width="1" />
+        <text x="${padding.left + 33}" y="${height - padding.bottom - 10}" fill="#f43f5e" font-size="9.5" font-weight="700" text-anchor="middle">f(x) < 0</text>
+      </g>`;
     }
 
     // Оси координат с неоновым свечением
@@ -431,40 +439,107 @@ class GraphRenderer {
     }
     svg += `</g>`;
 
-    // Ключевые точки
+    // Ключевые точки с интерактивной неоновой подсветкой шагов
     if (points && points.length > 0) {
       svg += `<g class="points">`;
       for (const pt of points) {
         const px = scaleX(pt.x);
         const py = scaleY(pt.y);
-        const ptColor = pt.color || '#00f0ff';
+        let ptColor = pt.color || '#00f0ff';
         const isHollow = pt.hollow || false;
 
-        const isHighlighted = (highlightStep === 'zeros' && Math.abs(pt.y) < 1e-4) ||
-                              (highlightStep === 'extrema' && (pt.label.includes('max') || pt.label.includes('min') || pt.label.includes('вершина')));
+        const isZeroPt = Math.abs(pt.y) < 1e-4 || (pt.label && pt.label.includes('; 0'));
+        const isExtremumPt = pt.label && (pt.label.includes('max') || pt.label.includes('min') || pt.label.includes('вершина'));
+        const isYIntercept = Math.abs(pt.x) < 1e-4 || (pt.label && pt.label.includes('(0;'));
 
-        if (!isClean) {
-          svg += `<circle cx="${px}" cy="${py}" r="6" fill="none" stroke="${ptColor}" stroke-width="1.8" class="neon-pulse-ring" />`;
+        let isTarget = false;
+        let ringR = 6;
+        let dotR = 4.2;
+
+        if (highlightStep === 'zeros' && isZeroPt) {
+          isTarget = true;
+          ptColor = '#10e897';
+          ringR = 10;
+          dotR = 5.5;
+        } else if (highlightStep === 'extrema' && isExtremumPt) {
+          isTarget = true;
+          ptColor = '#ff2d75';
+          ringR = 10;
+          dotR = 5.5;
+          // Вертикальная пунктирная линия симметрии вершины
+          svg += `<line x1="${px}" y1="${padding.top}" x2="${px}" y2="${height - padding.bottom}" stroke="#ff2d75" stroke-width="1.4" stroke-dasharray="4,4" opacity="0.75" />`;
+        } else if (highlightStep === 'coefficients' && isYIntercept) {
+          isTarget = true;
+          ptColor = '#c084fc';
+          ringR = 10;
+          dotR = 5.5;
         }
 
-        if (pt.dashedLines) {
-          svg += `<line x1="${px}" y1="${py}" x2="${px}" y2="${axisYPos}" stroke="${ptColor}" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" />`;
-          svg += `<line x1="${px}" y1="${py}" x2="${axisXPos}" y2="${py}" stroke="${ptColor}" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" />`;
+        const opacity = (highlightStep && highlightStep !== 'all' && !isTarget) ? '0.4' : '1';
+
+        if (!isClean) {
+          svg += `<circle cx="${px}" cy="${py}" r="${ringR}" fill="none" stroke="${ptColor}" stroke-width="${isTarget ? '2.4' : '1.8'}" class="${isTarget ? 'neon-pulse-ring' : ''}" opacity="${opacity}" />`;
+        }
+
+        if (pt.dashedLines || isTarget) {
+          svg += `<line x1="${px}" y1="${py}" x2="${px}" y2="${axisYPos}" stroke="${ptColor}" stroke-width="${isTarget ? '1.5' : '1'}" stroke-dasharray="3,3" opacity="${isTarget ? '0.85' : '0.5'}" />`;
+          svg += `<line x1="${px}" y1="${py}" x2="${axisXPos}" y2="${py}" stroke="${ptColor}" stroke-width="${isTarget ? '1.5' : '1'}" stroke-dasharray="3,3" opacity="${isTarget ? '0.85' : '0.5'}" />`;
         }
 
         if (isHollow) {
-          svg += `<circle cx="${px}" cy="${py}" r="4" fill="${bgColor}" stroke="${ptColor}" stroke-width="2" />`;
+          svg += `<circle cx="${px}" cy="${py}" r="4" fill="${bgColor}" stroke="${ptColor}" stroke-width="2" opacity="${opacity}" />`;
         } else {
-          svg += `<circle cx="${px}" cy="${py}" r="4.2" fill="${ptColor}" stroke="${bgColor}" stroke-width="1.6" ${!isClean ? `filter="url(#neon-glow-${graphId})"` : ''} class="neon-fade" />`;
+          svg += `<circle cx="${px}" cy="${py}" r="${dotR}" fill="${ptColor}" stroke="${bgColor}" stroke-width="1.6" ${!isClean ? `filter="url(#neon-glow-${graphId})"` : ''} class="neon-fade" opacity="${opacity}" />`;
         }
 
         if (pt.label) {
           const offX = pt.labelOffsetX !== undefined ? pt.labelOffsetX : 6;
           const offY = pt.labelOffsetY !== undefined ? pt.labelOffsetY : -6;
-          svg += `<text x="${px + offX}" y="${py + offY}" fill="${isClean ? '#0f172a' : '#f1f5f9'}" font-size="10.5" font-weight="700" class="neon-fade">${pt.label}</text>`;
+          const labelColor = isTarget ? ptColor : (isClean ? '#0f172a' : '#f1f5f9');
+          svg += `<text x="${px + offX}" y="${py + offY}" fill="${labelColor}" font-size="${isTarget ? '11.5' : '10.5'}" font-weight="${isTarget ? '800' : '700'}" class="neon-fade" opacity="${opacity}">${pt.label}</text>`;
         }
       }
       svg += `</g>`;
+    }
+
+    // Интерактивный HUD баннер текущего шага исследования
+    if (highlightStep && highlightStep !== 'all') {
+      let bannerText = '';
+      let bannerColor = '#00f0ff';
+      let bannerBg = 'rgba(0, 240, 255, 0.15)';
+
+      if (highlightStep === 'zeros') {
+        bannerText = '● Нули функции: пересечения с Ox (y = 0)';
+        bannerColor = '#10e897';
+        bannerBg = 'rgba(16, 232, 151, 0.2)';
+      } else if (highlightStep === 'extrema') {
+        const hasExtrema = points && points.some(p => p.label && (p.label.includes('min') || p.label.includes('max') || p.label.includes('вершина')));
+        if (hasExtrema) {
+          bannerText = '▲ Вершина / Экстремум функции (x₀; y₀)';
+          bannerColor = '#ff2d75';
+          bannerBg = 'rgba(255, 45, 117, 0.2)';
+        } else {
+          bannerText = '➔ Экстремумов нет (функция строго монотонна)';
+          bannerColor = '#00f0ff';
+          bannerBg = 'rgba(0, 240, 255, 0.15)';
+        }
+      } else if (highlightStep === 'coefficients') {
+        bannerText = '■ Анализ коэффициентов и точка на Oy (0; b)';
+        bannerColor = '#c084fc';
+        bannerBg = 'rgba(192, 132, 252, 0.2)';
+      } else if (highlightStep === 'intervals') {
+        bannerText = '▧ Промежутки знакопостоянства: f(x) > 0 и f(x) < 0';
+        bannerColor = '#38bdf8';
+        bannerBg = 'rgba(56, 189, 248, 0.2)';
+      }
+
+      if (bannerText) {
+        const bannerW = Math.min(270, innerW);
+        svg += `<g class="neon-hud-banner neon-fade">
+          <rect x="${padding.left + 4}" y="${padding.top + 4}" width="${bannerW}" height="20" rx="5" fill="${bannerBg}" stroke="${bannerColor}" stroke-width="1.2" />
+          <text x="${padding.left + 10}" y="${padding.top + 18}" fill="${bannerColor}" font-size="9.5" font-weight="700" font-family="'JetBrains Mono', monospace">${bannerText}</text>
+        </g>`;
+      }
     }
 
     if (title) {

@@ -39,6 +39,7 @@ class AppState {
         ];
         this.workSettings = parsed.workSettings || this.getDefaultWorkSettings();
         this.studentDrawings = parsed.studentDrawings || {};
+        this.variantTasks = parsed.variantTasks || this.getDefaultVariantTasks();
         return;
       } catch (e) {
         console.error('Ошибка загрузки сохраненных данных:', e);
@@ -51,6 +52,42 @@ class AppState {
       'sqrt-1', 'abs-1', 'exp-growth-1', 'trig-sin-1'
     ];
     this.workSettings = this.getDefaultWorkSettings();
+    this.variantTasks = this.getDefaultVariantTasks();
+  }
+
+
+  getDefaultVariantTasks() {
+    const vt = {};
+    for (let v = 1; v <= 25; v++) {
+      vt[v] = [
+        `linear-${((v - 1) % 50) + 1}`,
+        `quad-${((v - 1) % 50) + 1}`,
+        `rational-${((v - 1) % 50) + 1}`,
+        `cubic-${((v - 1) % 50) + 1}`,
+        `sqrt-${((v - 1) % 50) + 1}`,
+        `abs-${((v - 1) % 50) + 1}`,
+        `exp-growth-${((v - 1) % 50) + 1}`,
+        `trig-sin-${((v - 1) % 50) + 1}`
+      ];
+    }
+    return vt;
+  }
+
+  getSelectedTasksForVariant(variantNum = this.activeVariantView) {
+    if (this.variantTasks && this.variantTasks[variantNum] && this.variantTasks[variantNum].length > 0) {
+      return this.variantTasks[variantNum]
+        .map(id => this.taskBank.find(t => t.id === id))
+        .filter(Boolean);
+    }
+    const def = this.getDefaultVariantTasks();
+    if (def[variantNum]) {
+      return def[variantNum]
+        .map(id => this.taskBank.find(t => t.id === id))
+        .filter(Boolean);
+    }
+    return this.selectedTaskIds
+      .map(id => this.taskBank.find(t => t.id === id))
+      .filter(Boolean);
   }
 
   getDefaultWorkSettings() {
@@ -76,7 +113,8 @@ class AppState {
         customTasks,
         selectedTaskIds: this.selectedTaskIds,
         workSettings: this.workSettings,
-        studentDrawings: this.studentDrawings || {}
+        studentDrawings: this.studentDrawings || {},
+        variantTasks: this.variantTasks || {}
       };
       localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (e) {
@@ -219,25 +257,34 @@ function initClearTasksButton() {
 
 function initBuilderModeToggle() {
   const btn = document.getElementById('builder-mode-toggle-btn');
-  const icon = document.getElementById('builder-mode-icon');
-  const text = document.getElementById('builder-mode-text');
   if (!btn) return;
 
   btn.addEventListener('click', () => {
-    state.studentMode = !state.studentMode;
-    state.cardOverrides = {};
-    if (state.studentMode) {
-      if (icon) icon.textContent = '👁️';
-      if (text) text.textContent = 'Режим учителя (с графиками)';
-      btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-500/40 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/60 transition flex items-center gap-1.5 shadow-neon-emerald';
-      showToast('✏️ Включен режим студента: координатные сетки готовы к самостоятельному черчению', 'info');
-    } else {
-      if (icon) icon.textContent = '✏️';
-      if (text) text.textContent = 'Режим черчения (сетка)';
-      btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-500/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/60 transition flex items-center gap-1.5 shadow-neon-cyan';
-      showToast('👁️ Включен режим учителя: отображаются готовые эталонные графики', 'success');
+    if (typeof StudentBoard !== 'undefined') {
+      const selectedTasks = state.selectedTaskIds
+        .map(id => state.taskBank.find(t => t.id === id))
+        .filter(Boolean);
+      StudentBoard.open(selectedTasks[0] || null, state.activeVariantView || 1);
+      showToast('🎨 Открыта интерактивная доска для черчения графика', 'info');
     }
-    renderBuilderTab();
+  });
+
+  // Кнопки открытия доски из шапки навигации
+  document.getElementById('nav-open-whiteboard-btn')?.addEventListener('click', () => {
+    if (typeof StudentBoard !== 'undefined') {
+      const selectedTasks = state.selectedTaskIds
+        .map(id => state.taskBank.find(t => t.id === id))
+        .filter(Boolean);
+      StudentBoard.open(selectedTasks[0] || null, state.activeVariantView || 1);
+    }
+  });
+  document.getElementById('nav-open-whiteboard-mobile-btn')?.addEventListener('click', () => {
+    if (typeof StudentBoard !== 'undefined') {
+      const selectedTasks = state.selectedTaskIds
+        .map(id => state.taskBank.find(t => t.id === id))
+        .filter(Boolean);
+      StudentBoard.open(selectedTasks[0] || null, state.activeVariantView || 1);
+    }
   });
 }
 
@@ -256,24 +303,90 @@ function initVariantCountControls() {
     btn.addEventListener('click', () => {
       state.variantCount = cnt;
       if (state.activeVariantView > cnt) state.activeVariantView = 1;
+      
+      // Автоматически распределяем уникальные задания для каждого варианта:
+      if (!state.variantTasks || Object.keys(state.variantTasks).length < cnt) {
+        state.variantTasks = state.getDefaultVariantTasks();
+      }
+      
       initVariantCountControls();
       renderBuilderTab();
-      showToast(`Установлено вариантов: ${cnt}`, 'info');
+      renderBuilderAnswersPanel();
+      showToast(`Установлено вариантов: ${cnt}. Для каждого варианта подготовлены свои задания!`, 'success');
     });
     container.appendChild(btn);
   });
 }
 
 /* ==================== ГЕНЕРАТОР ВАРИАНТОВ И ОТВЕТОВ ==================== */
+function generateCompleteWork(taskCount = 8) {
+  const allCategories = [
+    'linear', 'quadratic', 'rational', 'cubic', 'sqrt', 'abs',
+    'exp_growth', 'log', 'trig_sin', 'piecewise', 'solve_graph',
+    'quartic', 'cbrt', 'abs_parabola', 'exp_decay', 'trig_cos',
+    'trig_tan', 'arctrig'
+  ];
+
+  state.variantTasks = {};
+
+  // Формируем уникальные, не повторяющиеся задания для КАЖДОГО варианта от 1 до variantCount:
+  for (let v = 1; v <= state.variantCount; v++) {
+    const chosenIds = [];
+    const shuffledCats = [...allCategories].sort(() => 0.5 - Math.random());
+
+    for (let i = 0; i < taskCount && i < shuffledCats.length; i++) {
+      const cat = shuffledCats[i];
+      const catTasks = state.taskBank.filter(t => t.category === cat);
+      if (catTasks.length > 0) {
+        // Смещаем индекс по номеру варианта, чтобы каждый вариант получал другие задачи
+        const tIdx = ((v - 1) * 2 + i) % catTasks.length;
+        const task = catTasks[tIdx];
+        if (!chosenIds.includes(task.id)) {
+          chosenIds.push(task.id);
+        }
+      }
+    }
+
+    const remaining = state.taskBank.filter(t => !chosenIds.includes(t.id));
+    let rIdx = (v * 5) % Math.max(1, remaining.length);
+    while (chosenIds.length < taskCount && remaining.length > 0) {
+      const nextId = remaining[rIdx % remaining.length].id;
+      if (!chosenIds.includes(nextId)) {
+        chosenIds.push(nextId);
+      }
+      rIdx++;
+    }
+
+    state.variantTasks[v] = chosenIds;
+  }
+
+  state.selectedTaskIds = state.variantTasks[1] || [];
+  state.activeVariantView = 1;
+  state.cardOverrides = {};
+  state.saveState();
+
+  initVariantCountControls();
+  switchTab('builder');
+  renderBuilderTab();
+  renderBuilderAnswersPanel();
+
+  showToast(`⚡ Сгенерировано ${state.variantCount} уникальных вариантов с РАЗНЫМИ заданиями для каждого!`, 'success');
+}
+
 function initGeneratorModal() {
   const modal = document.getElementById('generator-modal');
+  
+  // Кнопка в тулбаре "⚡ Сгенерировать работу" сразу генерирует новый вариант на странице:
+  const toolbarGenBtn = document.getElementById('builder-open-generator-btn');
+  if (toolbarGenBtn) {
+    toolbarGenBtn.addEventListener('click', () => {
+      generateCompleteWork(8);
+    });
+  }
+
   if (!modal) return;
 
-  const openBtns = [
-    document.getElementById('open-generator-btn'),
-    document.getElementById('builder-open-generator-btn')
-  ].filter(Boolean);
-
+  const headerGenBtn = document.getElementById('open-generator-btn');
   const closeBtn = document.getElementById('gen-modal-close');
   const cancelBtn = document.getElementById('gen-modal-cancel');
   const executeBtn = document.getElementById('gen-modal-execute');
@@ -292,9 +405,9 @@ function initGeneratorModal() {
     modal.classList.add('hidden');
   };
 
-  openBtns.forEach(btn => {
-    btn.addEventListener('click', openModal);
-  });
+  if (headerGenBtn) {
+    headerGenBtn.addEventListener('click', openModal);
+  }
 
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
   if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
@@ -303,7 +416,7 @@ function initGeneratorModal() {
     if (e.target === modal) closeModal();
   });
 
-  // Выбор количества вариантов (2, 4, 10, 25)
+  // Выбор количества вариантов в модалке (2, 4, 10, 25)
   countBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       countBtns.forEach(b => {
@@ -316,73 +429,20 @@ function initGeneratorModal() {
     });
   });
 
-  // Генерация работы и ключей ответов
+  // Генерация работы по кнопке в модалке
   if (executeBtn) {
     executeBtn.addEventListener('click', () => {
-      const taskCount = parseInt(taskCountSelect ? taskCountSelect.value : 4, 10) || 4;
-      const includeAnswers = includeAnswersCheckbox ? includeAnswersCheckbox.checked : true;
-      const includeSolutions = includeSolutionsCheckbox ? includeSolutionsCheckbox.checked : true;
-
-      // Устанавливаем число вариантов
+      const taskCount = parseInt(taskCountSelect ? taskCountSelect.value : 8, 10) || 8;
       state.variantCount = selectedGenCount;
-      state.activeVariantView = 1;
+      if (includeAnswersCheckbox) state.workSettings.showAnswersSheet = includeAnswersCheckbox.checked;
+      if (includeSolutionsCheckbox) state.workSettings.showCriteria = includeSolutionsCheckbox.checked;
 
-      // Настройка листа ответов для преподавателя
-      state.workSettings.showAnswersSheet = includeAnswers;
-      state.workSettings.showCriteria = includeSolutions;
-
-      // Балансировка тем по ВСЕМ 18 графикам функций для 1 курса СПО:
-      const categoryKeys = [
-        'linear', 'quadratic', 'rational', 'cubic', 'quartic', 'sqrt',
-        'cbrt', 'abs', 'abs_parabola', 'exp_growth', 'exp_decay', 'log',
-        'trig_sin', 'trig_cos', 'trig_tan', 'arctrig', 'piecewise', 'solve_graph'
-      ];
-
-      const chosenIds = [];
-      // Отбираем по одному разноплановому заданию из каждой категории:
-      for (let i = 0; i < taskCount && i < categoryKeys.length; i++) {
-        const cat = categoryKeys[i];
-        const catTasks = state.taskBank.filter(t => t.category === cat);
-        if (catTasks.length > 0) {
-          const randTask = catTasks[Math.floor(Math.random() * catTasks.length)];
-          if (!chosenIds.includes(randTask.id)) {
-            chosenIds.push(randTask.id);
-          }
-        }
-      }
-
-      // Если требуется больше заданий, дополняем случайными из оставшихся в банке:
-      const remainingTasks = state.taskBank.filter(t => !chosenIds.includes(t.id));
-      while (chosenIds.length < taskCount && remainingTasks.length > 0) {
-        const randIdx = Math.floor(Math.random() * remainingTasks.length);
-        chosenIds.push(remainingTasks.splice(randIdx, 1)[0].id);
-      }
-
-      state.selectedTaskIds = chosenIds;
-
-      // Корректировка заголовка
-      state.workSettings.topic = taskCount <= 3
-        ? 'Самостоятельная работа: Базовые графики функций'
-        : taskCount <= 6
-        ? 'Контрольная работа: Исследование и построение графиков функций'
-        : 'Итоговая зачетная работа: Все графики функций (СПО 1 курс)';
-
-      state.workSettings.timeLimit = taskCount <= 3 ? '20 минут' : taskCount <= 6 ? '45 минут' : '90 минут';
-
-      state.saveState();
-      initVariantCountControls();
       closeModal();
-
-      // ОСТАЕМСЯ В ИНТЕРАКТИВНОМ НЕОНОВОМ КОНСТРУКТОРЕ НА САЙТЕ!
-      switchTab('builder');
-      renderBuilderTab();
-      renderBuilderAnswersPanel();
-      showToast(`⚡ Сгенерировано: ${selectedGenCount} вариантов (${taskCount} заданий)! Переключайте варианты кнопками вверху.`, 'success');
+      generateCompleteWork(taskCount);
     });
   }
 }
 
-/* ==================== ИНТЕРАКТИВНЫЕ ОТВЕТЫ И РЕШЕНИЯ В КОНСТРУКТОРЕ ==================== */
 function initBuilderAnswersToggle() {
   const toggleBtn = document.getElementById('toggle-builder-answers-btn');
   const label = document.getElementById('toggle-builder-answers-label');
@@ -407,9 +467,7 @@ function renderBuilderAnswersPanel() {
   const container = document.getElementById('builder-answers-content');
   if (!panel || !container || panel.classList.contains('hidden')) return;
 
-  const selectedTasks = state.selectedTaskIds
-    .map(id => state.taskBank.find(t => t.id === id))
-    .filter(Boolean);
+  const selectedTasks = state.getSelectedTasksForVariant(state.activeVariantView);
 
   if (selectedTasks.length === 0) {
     container.innerHTML = '<p class="text-xs text-slate-400">Нет выбранных заданий для формирования ключей ответов.</p>';
@@ -418,12 +476,13 @@ function renderBuilderAnswersPanel() {
 
   let html = '';
   for (let vNum = 1; vNum <= state.variantCount; vNum++) {
+    const vTasks = state.getSelectedTasksForVariant(vNum);
     html += `
       <div class="border border-cyan-500/30 rounded-xl p-3 sm:p-4 bg-slate-950/80 mb-3 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-0.5 rounded text-xs font-black bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-neon-cyan">ВАРИАНТ № ${vNum}</span>
-            <span class="text-xs text-slate-400 font-medium">(${selectedTasks.length} заданий)</span>
+            <span class="text-xs text-slate-400 font-medium">(${vTasks.length} заданий)</span>
           </div>
           <button type="button" class="text-xs text-cyan-400 hover:underline font-semibold" onclick="state.activeVariantView = ${vNum}; renderBuilderTab();">
             Смотреть карточки варианта →
@@ -433,7 +492,7 @@ function renderBuilderAnswersPanel() {
         <div class="space-y-3">
     `;
 
-    selectedTasks.forEach((task, tIdx) => {
+    vTasks.forEach((task, tIdx) => {
       const varData = task.variants[(vNum - 1) % task.variants.length];
       const sol = varData.detailedSolution || {};
 
@@ -513,9 +572,7 @@ function renderBuilderTab() {
     }
   }
 
-  const selectedTasks = state.selectedTaskIds
-    .map(id => state.taskBank.find(t => t.id === id))
-    .filter(Boolean);
+  const selectedTasks = state.getSelectedTasksForVariant(state.activeVariantView);
 
   if (countBadge) countBadge.textContent = selectedTasks.length;
 
@@ -541,10 +598,6 @@ function renderBuilderTab() {
 
   selectedTasks.forEach((task, index) => {
     const varData = task.variants[(state.activeVariantView - 1) % task.variants.length];
-    
-    // Проверка режима отображения (чистая координатная сетка для студента или готовый график)
-    const isOverride = state.cardOverrides[task.id];
-    const isBlank = (typeof isOverride === 'boolean') ? isOverride : state.studentMode;
     const hasDrawing = state.studentDrawings && !!state.studentDrawings[task.id];
 
     const svgCode = GraphRenderer.renderSVG({
@@ -553,29 +606,27 @@ function renderBuilderTab() {
       height: 240,
       theme: 'neon',
       animated: true,
-      blankGrid: isBlank
+      blankGrid: false
     });
 
     const card = document.createElement('div');
     card.className = 'card-neon p-5 transition';
     card.innerHTML = `
       <div class="flex flex-col md:flex-row gap-5 items-start">
+        
+        <!-- Левая колонка: График и кнопка черчения -->
         <div class="w-full md:w-5/12 flex-shrink-0 flex flex-col items-center">
-          <div class="w-full bg-[#070b16] p-2 rounded-xl border border-cyan-500/20 flex justify-center overflow-hidden shadow-inner">
+          <div class="graph-click-area w-full bg-[#070b16] p-2 rounded-xl border border-cyan-500/20 hover:border-cyan-400 flex justify-center overflow-hidden shadow-inner cursor-pointer group transition" title="Нажмите, чтобы открыть этот график на интерактивной доске черчения">
             ${svgCode}
           </div>
-          <div class="mt-2.5 flex items-center justify-between w-full px-1 text-xs">
-            <button type="button" class="btn-toggle-graph-view text-xs font-semibold ${
-              isBlank ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-400 hover:text-slate-200'
-            } transition flex items-center gap-1">
-              <span>${isBlank ? '👁️ Показать эталонный график' : '✏️ Сетка для черчения'}</span>
-            </button>
-            <button type="button" class="text-slate-500 hover:text-cyan-400 copy-graph-btn transition text-[11px]">
-              Скачать SVG
-            </button>
-          </div>
+          
+          <button type="button" class="btn-open-whiteboard w-full py-2 px-3 rounded-xl border border-cyan-500/40 bg-cyan-950/70 hover:bg-cyan-900/90 text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 shadow-neon-cyan transition mt-2.5 cursor-pointer">
+            <span>🎨 Чертить график на доске</span>
+            ${hasDrawing ? '<span class="text-[10px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400 font-bold">✓ Чертеж сохранен</span>' : ''}
+          </button>
         </div>
 
+        <!-- Правая колонка: Условие задания и кнопки решений -->
         <div class="w-full md:w-7/12 flex flex-col justify-between h-full">
           <div>
             <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
@@ -583,7 +634,10 @@ function renderBuilderTab() {
                 <span class="font-bold text-xs text-cyan-300 bg-cyan-950/80 px-2.5 py-0.5 rounded border border-cyan-500/40">
                   Задание ${index + 1}
                 </span>
-                <span class="text-xs text-slate-400 font-medium">
+                <span class="font-bold text-xs text-fuchsia-300 bg-fuchsia-950/80 px-2 py-0.5 rounded border border-fuchsia-500/40">
+                  Вариант ${state.activeVariantView}
+                </span>
+                <span class="text-xs text-slate-400 font-medium hidden sm:inline">
                   ${task.categoryName || 'Общая тема'}
                 </span>
               </div>
@@ -600,42 +654,36 @@ function renderBuilderTab() {
               </div>
             </div>
 
-            <h4 class="font-bold text-sm text-white mb-2">${task.title}</h4>
+            <h4 class="font-bold text-sm text-white mb-2 flex items-center justify-between gap-2 flex-wrap">
+              <span>${task.title}</span>
+              <span class="text-xs text-cyan-400 font-mono font-semibold">${varData.graphConfig.functions && varData.graphConfig.functions[0] ? 'y = ' + varData.graphConfig.functions[0].fn : ''}</span>
+            </h4>
             <div class="text-xs text-slate-300 whitespace-pre-line mb-3 font-sans leading-relaxed bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
               ${escapeHtml(varData.question)}
             </div>
 
-            <!-- Кнопка подробного разбора решения -->
-            <!-- Кнопки интерактивной доски и подробного разбора решения -->
+            <!-- Главные действия: Интерактивная доска и Пошаговое решение -->
             <div class="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button type="button" class="btn-open-whiteboard btn-neon-primary w-full py-2 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-semibold shadow-neon-cyan" title="Открыть интерактивную неоновую доску для самостоятельного черчения и записи решения">
+              <button type="button" class="btn-open-whiteboard btn-neon-primary w-full py-2.5 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-bold shadow-neon-cyan" title="Открыть интерактивную неоновую доску для самостоятельного черчения и записи решения">
                 <span>🎨 Чертить на доске</span>
                 ${hasDrawing ? '<span class="text-[10px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400 font-bold">✓ Есть чертеж</span>' : ''}
               </button>
-              <button type="button" class="btn-open-solution btn-neon-emerald w-full py-2 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-semibold shadow-neon-emerald" title="Посмотреть пошаговое решение и теоретический справочник">
+              <button type="button" class="btn-open-solution btn-neon-emerald w-full py-2.5 px-3 text-xs rounded-lg flex items-center justify-center gap-1.5 transition font-bold shadow-neon-emerald" title="Посмотреть пошаговое решение и теоретический справочник">
                 <span>🔍 Пошаговое решение</span>
                 <span class="text-[10px] text-emerald-300">→</span>
               </button>
             </div>
           </div>
 
-          <!-- Кнопки управления порядком -->
-          <div class="flex items-center justify-between border-t border-slate-800 pt-3 mt-1">
-            <div class="flex gap-1 text-xs">
-              <button type="button" class="btn-move-up px-2 py-1 rounded text-slate-500 hover:text-slate-200 transition ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}" title="Выше" ${index === 0 ? 'disabled' : ''}>
-                ▲ Вверх
+          <!-- Нижняя панель: позиция задания и кнопки управления -->
+          <div class="flex items-center justify-between border-t border-slate-800 pt-3 mt-1 text-xs">
+            <span class="text-xs text-slate-500 font-medium">Задание №${index + 1} (${task.points || 1} б.)</span>
+            <div class="flex gap-2">
+              <button type="button" class="btn-edit-task text-slate-400 hover:text-cyan-300 px-3 py-1 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/60 transition font-medium">
+                ✏️ Редактировать
               </button>
-              <button type="button" class="btn-move-down px-2 py-1 rounded text-slate-500 hover:text-slate-200 transition ${index === selectedTasks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}" title="Ниже" ${index === selectedTasks.length - 1 ? 'disabled' : ''}>
-                ▼ Вниз
-              </button>
-            </div>
-
-            <div class="flex gap-2 text-xs">
-              <button type="button" class="btn-edit-task text-slate-400 hover:text-white px-2 py-1 rounded transition">
-                Редактировать
-              </button>
-              <button type="button" class="btn-remove-task text-slate-400 hover:text-rose-400 px-2 py-1 rounded transition">
-                Удалить
+              <button type="button" class="btn-remove-task text-slate-400 hover:text-rose-400 px-3 py-1 rounded-lg border border-slate-800 hover:border-rose-900/40 bg-slate-900/60 transition font-medium">
+                🗑️ Удалить
               </button>
             </div>
           </div>
@@ -643,12 +691,16 @@ function renderBuilderTab() {
       </div>
     `;
 
-    card.querySelector('.btn-toggle-graph-view')?.addEventListener('click', () => {
-      state.cardOverrides[task.id] = !isBlank;
-      renderBuilderTab();
+    // Клик по превью графика или кнопкам доски открывает интерактивную доску
+    card.querySelectorAll('.btn-open-whiteboard').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (typeof StudentBoard !== 'undefined') {
+          StudentBoard.open(task, state.activeVariantView);
+        }
+      });
     });
 
-    card.querySelector('.btn-open-whiteboard')?.addEventListener('click', () => {
+    card.querySelector('.graph-click-area')?.addEventListener('click', () => {
       if (typeof StudentBoard !== 'undefined') {
         StudentBoard.open(task, state.activeVariantView);
       }
@@ -658,11 +710,8 @@ function renderBuilderTab() {
       openSolutionModal(task, state.activeVariantView);
     });
 
-    card.querySelector('.btn-move-up')?.addEventListener('click', () => moveTask(index, -1));
-    card.querySelector('.btn-move-down')?.addEventListener('click', () => moveTask(index, 1));
     card.querySelector('.btn-remove-task')?.addEventListener('click', () => removeTaskFromSelected(task.id));
     card.querySelector('.btn-edit-task')?.addEventListener('click', () => openEditTaskModal(task));
-    card.querySelector('.copy-graph-btn')?.addEventListener('click', () => downloadSVG(svgCode, `graph_task_${index+1}.svg`));
 
     listContainer.appendChild(card);
   });
@@ -954,22 +1003,135 @@ function initSolutionModal() {
 
   if (closeTopBtn) closeTopBtn.addEventListener('click', close);
   if (closeBottomBtn) closeBottomBtn.addEventListener('click', close);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
 
+  // Кнопка плавной рисовки
   if (reanimateBtn) {
     reanimateBtn.addEventListener('click', () => {
-      renderSolutionGraph();
+      currentSolutionHighlight = 'all';
+      document.querySelectorAll('.sol-step-btn').forEach(b => {
+        if (b.dataset.highlight === 'all') b.classList.add('step-button-active');
+        else b.classList.remove('step-button-active');
+      });
+      const box = document.getElementById('sol-graph-box');
+      if (box) {
+        box.innerHTML = '';
+        setTimeout(() => renderSolutionGraph(), 30);
+      }
+      showToast('▶ Запущена плавная анимация рисовки графика (2.8 сек)', 'info');
     });
   }
 
-  // Кнопки интерактивной подсветки на чертеже
+  // Кнопки интерактивной подсветки на чертеже слева
   document.querySelectorAll('.sol-step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sol-step-btn').forEach(b => b.classList.remove('step-button-active'));
       btn.classList.add('step-button-active');
       currentSolutionHighlight = btn.dataset.highlight;
       renderSolutionGraph();
+
+      // Подсвечиваем соответствующий шаг в правой колонке
+      document.querySelectorAll('.sol-step-card').forEach(c => {
+        if (c.dataset.key === currentSolutionHighlight) {
+          c.classList.add('border-cyan-400', 'bg-cyan-950/40', 'shadow-neon-cyan');
+          c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          c.classList.remove('border-cyan-400', 'bg-cyan-950/40', 'shadow-neon-cyan');
+        }
+      });
     });
   });
+}
+
+
+function getFullSolutionSteps(task, varData, sol) {
+  if (sol.steps && sol.steps.length >= 4) {
+    return sol.steps;
+  }
+
+  const fnStr = (varData.graphConfig && varData.graphConfig.functions && varData.graphConfig.functions[0])
+    ? varData.graphConfig.functions[0].fn
+    : 'f(x)';
+  const cat = task.category || '';
+  const pts = (varData.graphConfig && varData.graphConfig.points) ? varData.graphConfig.points : [];
+
+  const zeros = pts.filter(p => Math.abs(p.y) < 1e-4);
+  const extrema = pts.filter(p => p.label && (p.label.includes('min') || p.label.includes('max') || p.label.includes('вершина')));
+  const yIntercept = pts.find(p => Math.abs(p.x) < 1e-4);
+
+  const steps = [];
+
+  // Шаг 1: Анализ формулы и коэффициентов
+  steps.push({
+    stepNum: 1,
+    title: 'Анализ формулы и коэффициентов',
+    content: `Задана функция: y = ${fnStr}.
+${cat === 'linear' ? 'Линейная функция вида y = kx + b. График — прямая линия. Знак k определяет угол наклона и возрастание/убывание.' :
+  cat === 'quadratic' ? 'Квадратичная функция y = ax² + bx + c. График — парабола. Старший коэффициент a задает направление ветвей.' :
+  cat === 'rational' ? 'Дробно-линейная функция. График — гипербола с вертикальной и горизонтальной асимптотами.' :
+  'Исследование аналитического вида функции, симметрии и основных геометрических параметров.'}`,
+    visualKey: 'coefficients'
+  });
+
+  // Шаг 2: Пересечения с осями координат (нули функции)
+  const zerosStr = zeros.length > 0
+    ? zeros.map(z => `x = ${z.x.toFixed(2)}`).join(', ')
+    : 'Пересечений с осью Ox нет (действительных корней уравнения f(x) = 0 нет)';
+  const yIntStr = yIntercept
+    ? `С осью Oy (при x = 0): точка (0; ${yIntercept.y.toFixed(2)}).`
+    : 'С осью Oy (при x = 0): вычисляется подстановкой нуля в формулу.';
+
+  steps.push({
+    stepNum: 2,
+    title: 'Пересечения с осями координат (нули функции)',
+    content: `${yIntStr}
+С осью Ox (нули функции f(x) = 0): ${zerosStr}.
+В этих точках график функции пересекает координатные оси Ox и Oy.`,
+    visualKey: 'zeros'
+  });
+
+  // Шаг 3: Вершина / Экстремумы и характер монотонности
+  if (extrema.length > 0) {
+    const vPt = extrema[0];
+    steps.push({
+      stepNum: 3,
+      title: 'Вершина / Экстремум и монотонность',
+      content: `Координаты вершины/экстремума: (${vPt.x.toFixed(2)}; ${vPt.y.toFixed(2)}).
+Ось симметрии параболы: прямая x = ${vPt.x.toFixed(2)}.
+При переходе через вершину функция меняет характер монотонности с возрастания на убывание (или наоборот).`,
+      visualKey: 'extrema'
+    });
+  } else {
+    steps.push({
+      stepNum: 3,
+      title: 'Характер монотонности (экстремумов нет)',
+      content: `Функция не имеет локальных экстремумов (вершин или точек перегиба).
+Она строго монотонна на всей своей числовой области определения (возрастает при k > 0 либо убывает при k < 0).`,
+      visualKey: 'extrema'
+    });
+  }
+
+  // Шаг 4: Промежутки знакопостоянства
+  steps.push({
+    stepNum: 4,
+    title: 'Промежутки знакопостоянства f(x) > 0 и f(x) < 0',
+    content: `Определяются интервалы оси Ox, где график расположен выше оси Ox (значения функции f(x) > 0) и ниже оси Ox (значения функции f(x) < 0).
+Границами смены знака служат нули функции и точки разрыва.`,
+    visualKey: 'intervals'
+  });
+
+  // Шаг 5: Итоговая таблица контрольных точек и график
+  steps.push({
+    stepNum: 5,
+    title: 'Таблица контрольных точек и построение чертежа',
+    content: `Для точного построения на координатную плоскость наносятся все ключевые точки: нули, пересечение с Oy, вершина и контрольные значения.
+По нанесенным точкам сплошной линией строится чистовой чертеж графика функции.`,
+    visualKey: 'all'
+  });
+
+  return steps;
 }
 
 function openSolutionModal(task, variantNum = 1) {
@@ -983,10 +1145,8 @@ function openSolutionModal(task, variantNum = 1) {
   const varData = task.variants[(variantNum - 1) % task.variants.length];
   const sol = varData.detailedSolution || {
     theory: 'Применение общих теорем и свойств элементарных функций.',
-    steps: [
-      { stepNum: 1, title: 'Анализ чертежа', content: varData.solution || 'Подробные аналитические вычисления...', visualKey: 'zeros' }
-    ],
-    commonMistakes: ['Невнимательность при считывании координат точек с осей.'],
+    steps: [],
+    commonMistakes: ['Невнимательность при вычислении знаков коэффициентов.'],
     rubric: [{ item: 'Полное правильное решение', points: `${task.points || 1} б.` }]
   };
 
@@ -995,7 +1155,7 @@ function openSolutionModal(task, variantNum = 1) {
   document.getElementById('sol-modal-variant-badge').textContent = `Вариант № ${variantNum}`;
 
   document.getElementById('sol-task-question').textContent = varData.question;
-  document.getElementById('sol-theory-box').textContent = sol.theory;
+  document.getElementById('sol-theory-box').textContent = sol.theory || 'Исследование свойств элементарной функции.';
   document.getElementById('sol-final-answer').textContent = varData.answer;
 
   // Ошибки
@@ -1012,35 +1172,45 @@ function openSolutionModal(task, variantNum = 1) {
   rubricContainer.innerHTML = '';
   (sol.rubric || []).forEach(r => {
     const row = document.createElement('div');
-    row.className = 'flex justify-between items-center bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800 text-xs';
+    row.className = 'flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-xs';
     row.innerHTML = `
-      <span class="text-slate-700 dark:text-slate-300">${escapeHtml(r.item)}</span>
-      <span class="font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded text-[11px]">${escapeHtml(r.points)}</span>
+      <span class="text-slate-300 font-medium">${escapeHtml(r.item)}</span>
+      <span class="font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded text-[11px] border border-emerald-500/30">${escapeHtml(r.points)}</span>
     `;
     rubricContainer.appendChild(row);
   });
 
-  // Шаги решения
+  // Полноценные 5 шагов математического разбора функции
   const stepsContainer = document.getElementById('sol-steps-container');
   stepsContainer.innerHTML = '';
-  (sol.steps || []).forEach((st, idx) => {
+  const steps = getFullSolutionSteps(task, varData, sol);
+
+  steps.forEach((st, idx) => {
     const stepEl = document.createElement('div');
-    stepEl.className = 'p-3.5 card-neon hover:border-cyan-400 transition cursor-pointer text-xs';
+    stepEl.className = 'sol-step-card p-3.5 card-neon hover:border-cyan-400 transition cursor-pointer text-xs rounded-xl border border-slate-800/80 mb-2.5';
+    stepEl.dataset.key = st.visualKey || 'all';
     stepEl.innerHTML = `
       <div class="flex items-center justify-between mb-1.5">
-        <span class="font-semibold text-blue-600 dark:text-blue-400">
-          Шаг ${st.stepNum || (idx + 1)}: ${escapeHtml(st.title)}
+        <span class="font-bold text-cyan-300 flex items-center gap-1.5">
+          <span>Шаг ${st.stepNum || (idx + 1)}:</span>
+          <span>${escapeHtml(st.title)}</span>
         </span>
-        <span class="text-[10px] text-slate-400">нажмите для подсветки</span>
+        <span class="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">нажмите для подсветки</span>
       </div>
-      <div class="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line font-sans">
+      <div class="text-slate-300 leading-relaxed whitespace-pre-line font-sans">
         ${escapeHtml(st.content)}
       </div>
     `;
 
     stepEl.addEventListener('click', () => {
-      currentSolutionHighlight = st.visualKey || 'zeros';
+      currentSolutionHighlight = st.visualKey || 'all';
       renderSolutionGraph();
+
+      // Подсветка карточки шага
+      document.querySelectorAll('.sol-step-card').forEach(c => c.classList.remove('border-cyan-400', 'bg-cyan-950/40', 'shadow-neon-cyan'));
+      stepEl.classList.add('border-cyan-400', 'bg-cyan-950/40', 'shadow-neon-cyan');
+
+      // Подсветка кнопки в левой панели
       document.querySelectorAll('.sol-step-btn').forEach(b => {
         if (b.dataset.highlight === currentSolutionHighlight) b.classList.add('step-button-active');
         else b.classList.remove('step-button-active');
@@ -1050,15 +1220,14 @@ function openSolutionModal(task, variantNum = 1) {
     stepsContainer.appendChild(stepEl);
   });
 
-  // Сброс кнопок подсветки
+  // Активная кнопка по умолчанию: Весь график
   document.querySelectorAll('.sol-step-btn').forEach(b => {
     if (b.dataset.highlight === 'all') b.classList.add('step-button-active');
     else b.classList.remove('step-button-active');
   });
 
-  renderSolutionGraph();
-
   modal.classList.remove('hidden');
+  renderSolutionGraph();
 }
 
 function renderSolutionGraph() {

@@ -38,6 +38,8 @@ class StudentBoardController {
 
     // Временный снимок для превью прямой линии
     this.previewSnapshot = null;
+    this.pendingTextX = null;
+    this.pendingTextY = null;
   }
 
   init() {
@@ -75,21 +77,31 @@ class StudentBoardController {
         btn.classList.add('border-white', 'scale-110', 'shadow-neon-cyan');
         btn.classList.remove('border-transparent');
         this.currentColor = btn.dataset.color;
+        const dot = document.getElementById('wb-size-dot-preview');
+        if (dot) {
+          dot.style.backgroundColor = this.currentColor;
+          dot.style.boxShadow = `0 0 ${this.currentSize + 3}px ${this.currentColor}`;
+        }
       });
     });
 
-    // Размеры кисти
+    // Гибкая регулировка размера полоски (слайдер + пресеты)
+    const sizeSlider = document.getElementById('wb-size-slider');
+    if (sizeSlider) {
+      sizeSlider.addEventListener('input', (e) => {
+        this.setSize(parseInt(e.target.value, 10));
+      });
+    }
+
     document.querySelectorAll('.wb-size-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.wb-size-btn').forEach(b => {
-          b.classList.remove('border-cyan-400', 'bg-cyan-950', 'text-cyan-300', 'font-bold');
-          b.classList.add('border-slate-700', 'bg-slate-900', 'text-slate-300');
-        });
-        btn.classList.add('border-cyan-400', 'bg-cyan-950', 'text-cyan-300', 'font-bold');
-        btn.classList.remove('border-slate-700', 'bg-slate-900', 'text-slate-300');
-        this.currentSize = parseInt(btn.dataset.size, 10) || 4;
+        const sz = parseInt(btn.dataset.size, 10) || 4;
+        this.setSize(sz);
       });
     });
+
+    // Обработчики выделенного окна ввода текста
+    this.initTextEditorBox();
 
     // Undo / Redo
     document.getElementById('wb-undo-btn')?.addEventListener('click', () => this.undo());
@@ -155,11 +167,9 @@ class StudentBoardController {
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
         clientX: e.clientX,
         clientY: e.clientY
       };
@@ -189,8 +199,7 @@ class StudentBoardController {
         this.placeMathPoint(pos.x, pos.y);
         this.isDrawing = false;
       } else if (this.currentTool === 'text') {
-        this.saveStateToUndo();
-        this.placeTextNote(pos.x, pos.y);
+        this.openTextEditor(pos.x, pos.y);
         this.isDrawing = false;
       }
     });
@@ -209,6 +218,7 @@ class StudentBoardController {
         this.eraseAt(pos.x, pos.y);
       } else if (this.currentTool === 'line' && this.previewSnapshot) {
         this.ctx.putImageData(this.previewSnapshot, 0, 0);
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         this.drawLine(this.startX, this.startY, pos.x, pos.y, true);
       }
     });
@@ -224,6 +234,8 @@ class StudentBoardController {
         if (this.previewSnapshot) {
           this.ctx.putImageData(this.previewSnapshot, 0, 0);
           this.previewSnapshot = null;
+    this.pendingTextX = null;
+    this.pendingTextY = null;
         }
         this.drawLine(this.startX, this.startY, pos.x, pos.y, false);
       }
@@ -234,7 +246,32 @@ class StudentBoardController {
     canvas.addEventListener('pointercancel', endDrawing);
   }
 
-  open(task, variantNum = 1) {
+  open(task = null, variantNum = 1) {
+    if (!task) {
+      const selectedTasks = (typeof state !== 'undefined' && state.selectedTaskIds)
+        ? state.selectedTaskIds.map(id => state.taskBank.find(t => t.id === id)).filter(Boolean)
+        : [];
+      if (selectedTasks.length > 0) {
+        task = selectedTasks[0];
+        variantNum = (typeof state !== 'undefined' && state.activeVariantView) ? state.activeVariantView : 1;
+      } else {
+        task = {
+          id: 'free-scratchpad',
+          title: 'Интерактивная доска для черчения графиков',
+          categoryName: 'Координатная плоскость Oxy',
+          variants: [{
+            question: 'Свободное построение графиков функций, нанесение ключевых точек и асимптот.',
+            graphConfig: {
+              fn: 'x^2 - 4',
+              xMin: -6,
+              xMax: 6,
+              yMin: -6,
+              yMax: 6
+            }
+          }]
+        };
+      }
+    }
     this.currentTask = task;
     this.currentVariantNum = variantNum;
     const varData = task.variants[(variantNum - 1) % task.variants.length];
@@ -279,15 +316,18 @@ class StudentBoardController {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = window.devicePixelRatio || 1;
+
+    this.logicalWidth = rect.width;
+    this.logicalHeight = rect.height;
+    this.dpr = dpr;
 
     this.canvas.width = Math.round(rect.width * dpr);
     this.canvas.height = Math.round(rect.height * dpr);
+    this.canvas.style.width = `${rect.width}px`;
+    this.canvas.style.height = `${rect.height}px`;
 
-    this.ctx.scale(dpr, dpr);
-    this.dpr = dpr;
-    this.logicalWidth = rect.width;
-    this.logicalHeight = rect.height;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   renderBackgroundGrid() {
@@ -502,7 +542,11 @@ class StudentBoardController {
   }
 
   clearCanvas() {
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
   // История Undo / Redo
@@ -580,6 +624,126 @@ class StudentBoardController {
       this.restoreImage(saved);
       showToast('Загружен ваш сохраненный чертеж', 'info');
     }
+  }
+
+
+  setSize(size) {
+    this.currentSize = Math.max(1, Math.min(32, size));
+    const slider = document.getElementById('wb-size-slider');
+    if (slider) slider.value = this.currentSize;
+    const valEl = document.getElementById('wb-size-val');
+    if (valEl) valEl.textContent = `${this.currentSize}px`;
+
+    const dot = document.getElementById('wb-size-dot-preview');
+    if (dot) {
+      dot.style.width = `${Math.min(this.currentSize, 18)}px`;
+      dot.style.height = `${Math.min(this.currentSize, 18)}px`;
+      dot.style.backgroundColor = this.currentColor;
+      dot.style.boxShadow = `0 0 ${this.currentSize + 3}px ${this.currentColor}`;
+    }
+
+    document.querySelectorAll('.wb-size-btn').forEach(b => {
+      const bSize = parseInt(b.dataset.size, 10);
+      if (bSize === this.currentSize) {
+        b.classList.add('border-cyan-400', 'bg-cyan-950', 'text-cyan-300', 'font-bold');
+        b.classList.remove('border-slate-800', 'bg-slate-900', 'text-slate-300');
+      } else {
+        b.classList.remove('border-cyan-400', 'bg-cyan-950', 'text-cyan-300', 'font-bold');
+        b.classList.add('border-slate-800', 'bg-slate-900', 'text-slate-300');
+      }
+    });
+  }
+
+  initTextEditorBox() {
+    const confirmBtn = document.getElementById('wb-text-confirm-btn');
+    const cancelBtn = document.getElementById('wb-text-cancel-btn');
+    const cancelBtn2 = document.getElementById('wb-text-cancel-btn-2');
+    const input = document.getElementById('wb-text-input');
+
+    if (confirmBtn) confirmBtn.addEventListener('click', () => this.applyTextNote());
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeTextEditor());
+    if (cancelBtn2) cancelBtn2.addEventListener('click', () => this.closeTextEditor());
+
+    // Вставка математических символов в текстовое поле в 1 клик
+    document.querySelectorAll('.wb-math-sym').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!input) return;
+        const sym = btn.dataset.sym || btn.textContent;
+        const start = input.selectionStart || input.value.length;
+        const end = input.selectionEnd || input.value.length;
+        const val = input.value;
+        input.value = val.substring(0, start) + sym + val.substring(end);
+        input.focus();
+        input.selectionStart = input.selectionEnd = start + sym.length;
+      });
+    });
+
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.applyTextNote();
+        } else if (e.key === 'Escape') {
+          this.closeTextEditor();
+        }
+      });
+    }
+  }
+
+  openTextEditor(x, y) {
+    const box = document.getElementById('wb-text-editor-box');
+    const input = document.getElementById('wb-text-input');
+    if (!box || !input) return;
+
+    this.pendingTextX = x;
+    this.pendingTextY = y;
+
+    const boxWidth = 320;
+    const boxHeight = 150;
+    const posX = Math.max(10, Math.min(x, this.logicalWidth - boxWidth - 10));
+    const posY = Math.max(10, Math.min(y, this.logicalHeight - boxHeight - 10));
+
+    box.style.left = `${posX}px`;
+    box.style.top = `${posY}px`;
+    box.classList.remove('hidden');
+
+    input.value = '';
+    setTimeout(() => input.focus(), 60);
+  }
+
+  closeTextEditor() {
+    const box = document.getElementById('wb-text-editor-box');
+    if (box) box.classList.add('hidden');
+    this.pendingTextX = null;
+    this.pendingTextY = null;
+  }
+
+  applyTextNote() {
+    const input = document.getElementById('wb-text-input');
+    const sizeSelect = document.getElementById('wb-text-size-select');
+    if (!input || this.pendingTextX === null) return;
+
+    const text = input.value.trim();
+    if (text) {
+      this.saveStateToUndo();
+      const fontSize = parseInt(sizeSelect ? sizeSelect.value : 16, 10) || 16;
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = this.currentColor;
+      ctx.shadowColor = this.currentColor;
+      ctx.shadowBlur = 8;
+
+      const lines = text.split('\n');
+      const lineHeight = fontSize * 1.35;
+      lines.forEach((line, idx) => {
+        ctx.fillText(line, this.pendingTextX, this.pendingTextY + (idx * lineHeight));
+      });
+
+      ctx.restore();
+    }
+
+    this.closeTextEditor();
   }
 
   downloadImage() {
