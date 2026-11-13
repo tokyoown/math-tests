@@ -535,7 +535,7 @@
 
   <!-- ==================== ИНТЕРАКТИВНАЯ ДОСКА СТУДЕНТА (WHITEBOARD) ==================== -->
   <div id="whiteboard-modal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md hidden">
-    <div class="modal-card-neon w-full max-w-6xl max-h-[96vh] flex flex-col bg-[#0b1120] border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden">
+    <div class="modal-card-neon w-full max-w-6xl h-[88vh] max-h-[94vh] flex flex-col bg-[#0b1120] border border-cyan-500/30 rounded-2xl shadow-2xl overflow-hidden">
       
       <!-- Шапка модального окна доски -->
       <div class="p-3 sm:p-4 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3">
@@ -646,8 +646,8 @@
       </div>
 
       <!-- Рабочая область холста (Canvas + SVG Coordinate Grid) -->
-      <div class="p-2 sm:p-4 flex-1 flex flex-col min-h-0 bg-[#050811] overflow-hidden">
-        <div id="wb-canvas-container" class="relative w-full h-[60vh] sm:h-[66vh] flex-1 bg-[#070b16] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl select-none">
+      <div class="p-2 sm:p-4 flex-1 flex flex-col min-h-[300px] bg-[#050811] overflow-hidden">
+        <div id="wb-canvas-container" class="relative w-full flex-1 min-h-[280px] bg-[#070b16] rounded-xl overflow-hidden border border-cyan-500/30 shadow-2xl select-none">
           
           <!-- Перемещаемая рабочая поверхность (Surface) -->
           <div id="wb-board-surface" class="absolute origin-top-left touch-none" style="width: 2400px; height: 2000px; left: 0px; top: 0px; transform: translate3d(0px, 0px, 0px); will-change: transform;">

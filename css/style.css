@@ -424,26 +424,19 @@ body {
 
 
 /* ==================== ИНТЕРАКТИВНАЯ ДОСКА СТУДЕНТА ==================== */
-#wb-draw-canvas {
-  touch-action: none;
-  cursor: crosshair;
-}
-
-.wb-color-btn {
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.wb-color-btn:hover {
-  transform: scale(1.15);
-}
-
-.wb-tool-btn.active {
-  background-color: rgba(6, 182, 212, 0.2) !important;
-  color: #67e8f9 !important;
-  border-color: #22d3ee !important;
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+#whiteboard-modal .modal-card-neon {
+  height: 88vh;
+  max-height: 94vh;
 }
 
 #wb-canvas-container {
+  flex: 1 1 auto;
+  min-height: 360px;
+  position: relative;
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(6, 182, 212, 0.15);
+}
+
+#wb-draw-canvas {
+  touch-action: none;
+  cursor: crosshair;
 }
