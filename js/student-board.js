@@ -167,9 +167,11 @@ class StudentBoardController {
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
+      const scaleX = (this.logicalWidth || rect.width) / (rect.width || 1);
+      const scaleY = (this.logicalHeight || rect.height) / (rect.height || 1);
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
         clientX: e.clientX,
         clientY: e.clientY
       };
@@ -277,6 +279,11 @@ class StudentBoardController {
     const varData = task.variants[(variantNum - 1) % task.variants.length];
     this.graphConfig = varData.graphConfig;
 
+    // Автоматический выбор режима: для уравнений и кратких ответов - СТРОГО ПУСТАЯ ДОСКА!
+    const isShortAnswer = task ? (task.taskType === 'short_answer') : false;
+    this.boardMode = isShortAnswer ? 'blank' : 'oxy';
+    this.updateModeButton();
+
     // Заполнение условий задания в шапке
     const titleEl = document.getElementById('wb-task-title');
     const badgeEl = document.getElementById('wb-variant-badge');
@@ -330,10 +337,47 @@ class StudentBoardController {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  updateModeButton() {
+    const btn = document.getElementById('wb-toggle-mode-btn');
+    const icon = document.getElementById('wb-mode-icon');
+    const text = document.getElementById('wb-mode-text');
+    if (!btn) return;
+
+    if (this.boardMode === 'blank') {
+      if (icon) icon.textContent = '📝';
+      if (text) text.textContent = 'Пустая доска';
+      btn.className = 'px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 text-amber-300 font-semibold text-xs flex items-center gap-1.5 transition';
+    } else {
+      if (icon) icon.textContent = '📐';
+      if (text) text.textContent = 'Сетка Oxy';
+      btn.className = 'px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 font-semibold text-xs flex items-center gap-1.5 transition';
+    }
+  }
+
   renderBackgroundGrid() {
     const gridLayer = document.getElementById('wb-grid-layer');
-    if (!gridLayer || !this.graphConfig) return;
+    if (!gridLayer) return;
 
+    if (this.boardMode === 'blank' || (this.currentTask && this.currentTask.taskType === 'short_answer' && this.boardMode !== 'oxy')) {
+      // 100% ПУСТАЯ ДОСКА ДЛЯ УРАВНЕНИЙ И ВЫЧИСЛЕНИЙ:
+      // Никаких осей координат Oxy, никаких графиков функций и кривых!
+      // Чистая поверхность с едва заметной деликатной тетрадной клеткой:
+      gridLayer.innerHTML = `
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="wb-blank-notebook-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+              <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(255, 255, 255, 0.04)" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#wb-blank-notebook-grid)" />
+        </svg>
+      `;
+      return;
+    }
+
+    if (!this.graphConfig) return;
+
+    // Для заданий на построение графиков функций: сетка Oxy
     const svg = GraphRenderer.renderSVG({
       ...this.graphConfig,
       width: Math.round(this.logicalWidth),
@@ -348,7 +392,19 @@ class StudentBoardController {
 
   renderReferenceLayer() {
     const refLayer = document.getElementById('wb-reference-layer');
-    if (!refLayer || !this.graphConfig) return;
+    const toggleBtn = document.getElementById('wb-toggle-reference-btn');
+    if (!refLayer) return;
+
+    if (this.boardMode === 'blank' || (this.currentTask && this.currentTask.taskType === 'short_answer' && this.boardMode !== 'oxy')) {
+      // Для уравнений и кратких ответов нет графика-эталона
+      refLayer.innerHTML = '';
+      refLayer.style.opacity = '0';
+      if (toggleBtn) toggleBtn.classList.add('hidden');
+      return;
+    }
+
+    if (toggleBtn) toggleBtn.classList.remove('hidden');
+    if (!this.graphConfig) return;
 
     const svg = GraphRenderer.renderSVG({
       ...this.graphConfig,
@@ -478,15 +534,31 @@ class StudentBoardController {
     ctx.restore();
   }
 
-  // Установка математической точки с координатами и привязкой к сетке
+  // Установка математической точки с координатами и точным попаданием курсора
   placeMathPoint(clickX, clickY) {
     const math = this.pixelToMath(clickX, clickY);
     
-    // Привязка к ближайшей половине деления или целому числу (snap to grid)
+    // Проверяем, близко ли клик к узлу координатной сетки (шаг 0.5)
     const snapX = Math.round(math.x * 2) / 2;
     const snapY = Math.round(math.y * 2) / 2;
+    const snappedPixel = this.mathToPixel(snapX, snapY);
+    const dist = Math.hypot(snappedPixel.x - clickX, snappedPixel.y - clickY);
 
-    const pixel = this.mathToPixel(snapX, snapY);
+    // Если клик близко к узлу сетки (до 16px) — мягко привязываем к узлу,
+    // иначе ставим точку точно в позицию клика курсора без смещения!
+    let targetX = clickX;
+    let targetY = clickY;
+    let labelMathX = Number(math.x.toFixed(1));
+    let labelMathY = Number(math.y.toFixed(1));
+
+    if (dist < 16) {
+      targetX = snappedPixel.x;
+      targetY = snappedPixel.y;
+      labelMathX = snapX;
+      labelMathY = snapY;
+    }
+
+    const pixel = { x: targetX, y: targetY };
     const ctx = this.ctx;
 
     ctx.save();
@@ -506,7 +578,7 @@ class StudentBoardController {
     ctx.fill();
 
     // Подпись координат (например, "(2; -3)")
-    const label = `(${snapX}; ${snapY})`;
+    const label = `(${labelMathX}; ${labelMathY})`;
     ctx.font = 'bold 12px "JetBrains Mono", monospace';
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = '#000000';

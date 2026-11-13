@@ -1,5 +1,5 @@
 /* 
- * ГрафМастер СПО — Neon Cyberpunk & Dark Mode Style
+ * NEOMATH — Neon Cyberpunk & Dark Mode Style
  * Неоновая эстетика, глубокая ночная тема и шелковистые плавные анимации
  */
 
@@ -34,8 +34,26 @@
   --text-cyan: #38bdf8;
 }
 
+/* Полное скрытие нативного бокового ползунка (скроллбара) для безупречного внешнего вида */
+html, body {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE / Edge legacy */
+  overflow-y: auto;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
+  background: transparent !important;
+}
+
 * {
   box-sizing: border-box;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 body {
@@ -316,15 +334,61 @@ body {
 
 /* ==================== АДАПТИВНОСТЬ ДЛЯ ТЕЛЕФОНОВ И ПЛАНШЕТОВ ==================== */
 @media (max-width: 640px) {
+  body, html {
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   .card-neon {
     padding: 0.875rem !important;
     border-radius: 12px !important;
   }
 
-  .modal-card-neon {
-    max-height: 92vh !important;
-    width: 96vw !important;
-    margin: 0.5rem !important;
+  /* Полноэкранные модальные окна на смартфонах для максимального удобства черчения и чтения */
+  #whiteboard-modal {
+    padding: 0 !important;
+  }
+  #whiteboard-modal .modal-card-neon {
+    max-height: 100dvh !important;
+    height: 100dvh !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  #wb-canvas-container {
+    height: calc(100dvh - 170px) !important;
+    min-height: 280px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Удобные крупные кнопки на тачскрине (минимум 38-44px) */
+  .wb-tool-btn {
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.8125rem !important;
+    min-height: 38px !important;
+  }
+
+  .wb-color-btn {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  /* Модальное окно пошагового решения на смартфонах */
+  #solution-modal {
+    padding: 0 !important;
+  }
+  #solution-modal .modal-card-neon {
+    max-height: 100dvh !important;
+    height: 100dvh !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
   }
 
   .nav-tab-btn {
@@ -332,9 +396,15 @@ body {
     font-size: 0.75rem !important;
   }
 
-  .btn-neon-primary, .btn-neon-purple, .btn-neon-emerald {
-    padding: 0.45rem 0.75rem !important;
-    font-size: 0.75rem !important;
+  /* Поле для ввода краткого ответа (16px предотвращает нежелательный зум в iOS Safari) */
+  .student-short-input {
+    font-size: 16px !important;
+  }
+
+  .btn-neon-primary, .btn-neon-purple, .btn-neon-emerald, .btn-neon-amber {
+    min-height: 40px !important;
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.8125rem !important;
   }
 
   .math-graph-svg {

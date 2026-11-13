@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ГрафМастер СПО — Неоновый генератор вариантов по графикам функций</title>
+  <title>NEOMATH · Интерактивная платформа математики (5000 задач)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -24,67 +24,65 @@
     }
   </script>
   <link rel="stylesheet" href="css/style.css">
+  <!-- Favicon to prevent 404 in logs -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-300">
 
   <!-- ==================== ШАПКА / HEADER ==================== -->
   <!-- ==================== ВЕРХНЯЯ ШАПКА САЙТА (АДАПТИВНАЯ) ==================== -->
-  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-cyan-950/30 no-print">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-cyan-950/30 no-print overflow-x-hidden">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 overflow-x-hidden">
       
       <!-- Верхняя линия: Логотип и быстрые действия -->
       <div class="h-16 flex items-center justify-between gap-2">
         <!-- Логотип с неоновым свечением -->
         <div class="flex items-center gap-2.5 sm:gap-3">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-500 p-0.5 shadow-md shadow-cyan-500/30 flex-shrink-0">
-            <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <svg class="w-5 h-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 17l6-6 4 4 8-8" />
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-cyan-400 via-purple-500 to-fuchsia-500 p-0.5 shadow-lg shadow-cyan-500/25 flex-shrink-0 group">
+            <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-fuchsia-500/10 pointer-events-none"></div>
+              <svg class="w-6 h-6 transform transition group-hover:scale-110 duration-300" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="neonLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#00f0ff" />
+                    <stop offset="50%" stop-color="#c084fc" />
+                    <stop offset="100%" stop-color="#ff2d75" />
+                  </linearGradient>
+                </defs>
+                <!-- Футуристическая Сигма / Квантовая математика -->
+                <path d="M4.5 4.5h15l-7 7.5 7 7.5h-15l6-7.5-6-7.5z" stroke="url(#neonLogoGrad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="rgba(0, 240, 255, 0.08)"/>
+                <circle cx="12" cy="12" r="1.8" fill="#00f0ff" class="animate-pulse"/>
               </svg>
             </div>
           </div>
-          <div>
-            <div class="flex items-center gap-1.5 sm:gap-2">
-              <span class="font-extrabold text-sm sm:text-base tracking-tight text-white">
-                ГрафМастер <span class="text-cyan-400 neon-text-glow font-black">NEON</span>
-              </span>
-              <span class="text-[9px] sm:text-[10px] font-bold bg-cyan-950/80 text-cyan-300 px-1.5 sm:px-2 py-0.5 rounded-full border border-cyan-500/40">
-                1 КУРС СПО
-              </span>
-            </div>
-            <span class="text-[10px] text-slate-400 hidden md:block">Все графики функций, генератор вариантов и решений</span>
+          <div class="flex items-center gap-2">
+            <span class="font-black text-base sm:text-lg tracking-wider text-white">
+              NEO<span class="text-cyan-400 neon-text-glow font-black">MATH</span>
+            </span>
+            <span class="text-[9px] sm:text-[10px] font-bold bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-500/40 tracking-wider">
+              1 КУРС
+            </span>
           </div>
         </div>
 
-        <!-- Десктопные вкладки навигации -->
+        <!-- Десктопные вкладки навигации (только Конструктор вариантов и Банк заданий) -->
         <nav class="hidden md:flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-cyan-500/20">
           <button type="button" data-tab="builder" class="nav-tab-btn active-tab">
             ⚡ Конструктор вариантов
           </button>
           <button type="button" data-tab="bank" class="nav-tab-btn">
-            📚 Банк заданий (18 тем)
-          </button>
-          <button type="button" id="nav-open-whiteboard-btn" class="nav-tab-btn text-cyan-300 hover:text-white flex items-center gap-1 font-bold">
-            🎨 Доска для черчения
+            📚 Банк заданий (25 модулей, 5000 задач)
           </button>
         </nav>
-
-        <!-- Правые действия: Кнопка генератора вариантов -->
-        <div class="flex items-center gap-2">
-          <button id="open-generator-btn" type="button" class="btn-neon-purple px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition shadow-neon-purple">
-            <span>⚡</span>
-            <span>Генератор вариантов</span>
-          </button>
-        </div>
       </div>
 
-      <!-- Мобильная полоса навигации (плавный touch-скролл для телефонов) -->
-      <nav class="flex md:hidden items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-none pb-2 pt-0.5 border-t border-slate-800/50">
-        <button type="button" data-tab="builder" class="nav-tab-btn active-tab text-xs py-1.5 px-3">
-          ⚡ Конструктор вариантов
+      <!-- Мобильная полоса навигации (только Конструктор вариантов и Банк заданий) -->
+      <nav class="grid grid-cols-2 gap-1.5 md:hidden pb-2 pt-1 border-t border-slate-800/60">
+        <button type="button" data-tab="builder" class="nav-tab-btn active-tab text-xs py-2 px-2 text-center flex items-center justify-center gap-1 font-semibold rounded-lg transition">
+          <span>⚡</span> <span>Конструктор</span>
         </button>
-        <button type="button" data-tab="bank" class="nav-tab-btn text-xs py-1.5 px-3">
-          📚 Банк заданий (18 тем)
+        <button type="button" data-tab="bank" class="nav-tab-btn text-xs py-2 px-2 text-center flex items-center justify-center gap-1 font-semibold rounded-lg transition">
+          <span>📚</span> <span>Банк (5000)</span>
         </button>
       </nav>
 
@@ -98,62 +96,85 @@
     <section id="section-builder" class="tab-section">
       
       <!-- Панель управления вариантами и режимами -->
-      <div class="card-neon p-4 sm:p-5 mb-6">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          <!-- Левая группа: Кнопка генератора и счетчики -->
-          <div class="flex items-center gap-3 flex-wrap">
-            <button id="builder-open-generator-btn" type="button" class="btn-neon-purple px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 shadow-neon-purple transition">
+      <div class="card-neon p-4 sm:p-5 mb-5 sm:mb-6 space-y-3.5">
+        
+        <!-- Верхняя строка: Главная кнопка генерации, селектор количества и статистика -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            <button id="builder-open-generator-btn" type="button" class="btn-neon-purple px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 shadow-neon-purple transition hover:scale-[1.02] active:scale-[0.98]">
               <span>⚡</span>
               <span>Сгенерировать работу</span>
             </button>
 
-            <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
-
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-slate-400">В работе:</span>
-              <span id="selected-tasks-count" class="bg-cyan-950 text-cyan-300 text-xs font-bold px-2.5 py-0.5 rounded border border-cyan-500/40">0</span>
-              <span id="total-points-badge" class="bg-slate-900 text-slate-300 text-xs font-medium px-2 py-0.5 rounded border border-slate-800">0 баллов</span>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 bg-slate-900 border border-slate-800 hover:border-cyan-500/40 px-3 py-2 sm:py-1.5 rounded-xl transition w-full sm:w-auto">
+              <label for="builder-task-count-select" class="text-xs text-slate-400 whitespace-nowrap">Количество заданий:</label>
+              <select id="builder-task-count-select" class="w-full sm:w-auto bg-slate-950 text-cyan-300 font-bold text-xs rounded border border-cyan-500/40 px-2.5 py-1.5 sm:py-1 outline-none focus:border-cyan-400 cursor-pointer min-w-0 max-w-full">
+                <option value="1">1 задание (1 тип)</option>
+                <option value="2">2 задания (2 типа)</option>
+                <option value="3">3 задания (3 типа)</option>
+                <option value="4">4 задания (4 типа)</option>
+                <option value="5">5 заданий (5 типов)</option>
+                <option value="6">6 заданий (6 типов)</option>
+                <option value="7">7 заданий (7 типов)</option>
+                <option value="8" selected>8 заданий (Итоговый срез)</option>
+                <option value="9">9 заданий (9 типов)</option>
+                <option value="10">10 заданий (Контрольная)</option>
+                <option value="11">11 заданий (11 типов)</option>
+                <option value="12">12 заданий (12 типов)</option>
+                <option value="13">13 заданий (13 типов)</option>
+                <option value="14">14 заданий (14 типов)</option>
+                <option value="15">15 заданий (Практикум)</option>
+                <option value="16">16 заданий (16 типов)</option>
+                <option value="17">17 заданий (17 типов)</option>
+                <option value="18">18 заданий (18 типов)</option>
+                <option value="19">19 заданий (19 типов)</option>
+                <option value="20">20 заданий (Экзамен)</option>
+                <option value="21">21 задание (21 тип)</option>
+                <option value="22">22 задания (22 типа)</option>
+                <option value="23">23 задания (23 типа)</option>
+                <option value="24">24 задания (24 типа)</option>
+                <option value="25">25 заданий (Все 25 модулей)</option>
+              </select>
             </div>
           </div>
 
-          <!-- Центральная группа: Число вариантов и выбор варианта -->
-          <div class="flex items-center gap-3 flex-wrap">
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-slate-400 font-medium">Вариантов:</span>
-              <div id="variant-buttons-group" class="flex gap-1"></div>
-            </div>
-
-            <div class="h-6 w-px bg-slate-800 hidden md:block"></div>
-
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-cyan-300 font-semibold">Вариант:</span>
-              <div id="builder-variant-switcher" class="flex flex-wrap gap-1"></div>
-            </div>
+          <div class="flex items-center gap-2 self-start sm:self-auto">
+            <span class="text-xs text-slate-400 whitespace-nowrap">В работе:</span>
+            <span id="selected-tasks-count" class="bg-cyan-950 text-cyan-300 text-xs font-bold px-2.5 py-1 rounded-lg border border-cyan-500/40">0</span>
+            <span id="total-points-badge" class="bg-slate-900 text-slate-300 text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-800">0 баллов</span>
           </div>
+        </div>
 
-          <!-- Правая группа: Режим студента (чистая сетка), Ответы и Очистка -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <button id="builder-mode-toggle-btn" type="button" class="btn-neon-primary px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-neon-cyan transition" title="Открыть интерактивную неоновую доску для черчения">
-                <span>🎨</span>
-                <span id="builder-mode-text">Доска для черчения</span>
-              </button>
+        <!-- Нижняя строка: Инструменты студента и действия -->
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="builder-mode-toggle-btn" type="button" class="btn-neon-primary px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-neon-cyan transition" title="Показать или скрыть графики">
+              <span id="builder-mode-icon">👁️</span>
+              <span id="builder-mode-text">Показать графики</span>
+            </button>
 
-            <button id="toggle-builder-answers-btn" type="button" class="btn-neon-emerald px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition">
+            <button id="builder-open-whiteboard-btn" type="button" class="btn-neon-purple px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-neon-purple transition" title="Открыть интерактивную неоновую доску для черчения">
+              <span>🎨</span>
+              <span>Доска для черчения</span>
+            </button>
+
+            <button id="toggle-builder-answers-btn" type="button" class="btn-neon-emerald px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition">
               <span>🔑</span>
               <span id="toggle-builder-answers-label">Ответы и решения</span>
             </button>
 
-            <button type="button" onclick="switchTab('bank')" class="text-xs font-semibold text-cyan-400 hover:underline px-2 py-1">
-              + Банк заданий
-            </button>
-
-            <button id="clear-tasks-btn" type="button" class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition" title="Очистить все задания">
-              ✕ Очистить
+            <button type="button" onclick="switchTab('bank')" class="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 hover:border-cyan-400 transition flex items-center gap-1.5 shadow-sm">
+              <span>📚</span>
+              <span>+ Банк заданий</span>
             </button>
           </div>
 
+          <button id="clear-tasks-btn" type="button" class="px-3 py-2 text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-transparent hover:border-rose-500/30 transition flex items-center gap-1.5 ml-auto" title="Очистить все задания">
+            <span>✕</span>
+            <span>Очистить работу</span>
+          </button>
         </div>
+
       </div>
 
       <!-- Интерактивная неоновая панель ключей и решений ко всем вариантам -->
@@ -172,10 +193,6 @@
 
       <!-- Полная ширина для списка карточек заданий -->
       <div id="selected-tasks-list" class="space-y-4"></div>
-
-    </section>
-
-      </div>
 
     </section>
 
@@ -200,16 +217,19 @@
                 <option value="hard">Повышенный</option>
               </select>
             </div>
-
-            <button id="create-new-task-btn" type="button" class="btn-neon-primary px-3.5 py-1.5 text-xs rounded-lg transition">
-              + Создать задание
-            </button>
           </div>
         </div>
 
         <div>
-          <span class="text-xs font-medium text-slate-400 block mb-2">Разделы программы СПО 1 курса:</span>
-          <div id="bank-category-filters" class="flex flex-wrap gap-1.5"></div>
+          <span class="text-xs font-medium text-slate-400 block mb-2">Разделы программы (25 модулей):</span>
+          
+          <!-- Выпадающий список для мобильных телефонов (компактно и быстро) -->
+          <div class="block sm:hidden mb-2">
+            <select id="bank-category-select-mobile" class="w-full text-xs px-3 py-2.5 rounded-xl border border-cyan-500/30 bg-slate-950 text-cyan-300 font-bold outline-none focus:border-cyan-400 shadow-sm"></select>
+          </div>
+
+          <!-- Кнопки-чипы для планшетов и ПК -->
+          <div id="bank-category-filters" class="hidden sm:flex flex-wrap gap-1.5"></div>
         </div>
 
         <div class="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center">
@@ -257,16 +277,33 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Количество заданий в каждом варианте:</label>
+          <label class="block font-semibold text-slate-300 mb-1">Количество заданий в каждом варианте (от 1 до 25, по 1 каждого типа):</label>
           <select id="gen-task-count" class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-200">
-            <option value="3">3 задания (Экспресс-опрос, 20 мин)</option>
-            <option value="4" selected>4 задания (Стандартная проверочная, 30 мин)</option>
-            <option value="5">5 заданий (Контрольная работа, 45 мин)</option>
-            <option value="6">6 заданий (Диагностический срез, 60 мин)</option>
-            <option value="8">8 заданий (Итоговый зачет, 90 мин)</option>
-            <option value="10">10 заданий (Развернутая контрольная работа)</option>
-            <option value="14">14 заданий (Большой практический практикум)</option>
-            <option value="18">Все 18 тем (Полный охват всех функций СПО)</option>
+                <option value="1">1 задание (1 тип)</option>
+                <option value="2">2 задания (2 типа)</option>
+                <option value="3">3 задания (3 типа)</option>
+                <option value="4">4 задания (4 типа)</option>
+                <option value="5">5 заданий (5 типов)</option>
+                <option value="6">6 заданий (6 типов)</option>
+                <option value="7">7 заданий (7 типов)</option>
+                <option value="8" selected>8 заданий (8 типов — Итоговый срез)</option>
+                <option value="9">9 заданий (9 типов)</option>
+                <option value="10">10 заданий (10 типов — Контрольная)</option>
+                <option value="11">11 заданий (11 типов)</option>
+                <option value="12">12 заданий (12 типов)</option>
+                <option value="13">13 заданий (13 типов)</option>
+                <option value="14">14 заданий (14 типов)</option>
+                <option value="15">15 заданий (15 типов — Практикум)</option>
+                <option value="16">16 заданий (16 типов)</option>
+                <option value="17">17 заданий (17 типов)</option>
+                <option value="18">18 заданий (18 типов)</option>
+                <option value="19">19 заданий (19 типов)</option>
+                <option value="20">20 заданий (20 типов — Экзамен)</option>
+                <option value="21">21 задание (21 тип)</option>
+                <option value="22">22 задания (22 типа)</option>
+                <option value="23">23 задания (23 типа)</option>
+                <option value="24">24 задания (24 типа)</option>
+                <option value="25">25 заданий (Все 25 модулей — 100% охват)</option>
           </select>
         </div>
 
@@ -285,7 +322,7 @@
         </div>
 
         <div class="p-3 bg-cyan-950/40 rounded-lg border border-cyan-500/30 text-cyan-300 text-[11px] leading-relaxed">
-          💡 Генератор автоматически подбирает параллельные задачи из всех ключевых тем 1 курса колледжа (параболы, гиперболы, линейные, тригонометрия, модуль) с единым уровнем сложности и формирует готовый лист ответов.
+          💡 Генератор автоматически подбирает задачи из всех 25 разделов математики (алгебра, степени, тригонометрия, анализ, стереометрия, векторы, комбинаторика, вероятность, комплексные числа) с подробным решением каждого шага.
         </div>
       </div>
 
@@ -322,26 +359,29 @@
 
       <div class="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <!-- Чертеж с интерактивными кнопками -->
-        <div class="lg:col-span-5 flex flex-col items-center space-y-3">
-          <div class="w-full bg-slate-950 p-2 rounded-xl border border-cyan-500/30 flex justify-center shadow-inner">
-            <div id="sol-graph-box" class="w-full flex justify-center"></div>
+        <!-- Чертеж с интерактивными кнопками (ТОЛЬКО для заданий на построение графиков) -->
+        <div id="sol-left-col" class="lg:col-span-5 flex flex-col items-center space-y-3">
+          <div class="w-full bg-slate-950 p-2 rounded-xl border border-cyan-500/30 flex justify-center shadow-inner min-h-[265px]">
+            <div id="sol-graph-box" class="w-full min-h-[250px] flex items-center justify-center overflow-hidden"></div>
           </div>
 
           <div class="w-full card-neon p-3 text-xs">
             <span class="font-bold text-cyan-300 block mb-2">Интерактивная подсветка на чертеже:</span>
-            <div class="grid grid-cols-2 gap-1.5">
-              <button type="button" data-highlight="all" class="sol-step-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left">
-                Весь график
+            <div class="grid grid-cols-2 gap-1.5 mb-1.5">
+              <button type="button" data-highlight="all" class="sol-step-btn px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left truncate">
+                🌐 Весь график
               </button>
-              <button type="button" data-highlight="zeros" class="sol-step-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left">
-                Нули функции
+              <button type="button" data-highlight="coefficients" class="sol-step-btn px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left truncate">
+                ■ Коэффициенты / Oy
               </button>
-              <button type="button" data-highlight="extrema" class="sol-step-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left">
-                Вершина / Экстремум
+              <button type="button" data-highlight="zeros" class="sol-step-btn px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left truncate">
+                ● Нули функции
               </button>
-              <button type="button" data-highlight="intervals" class="sol-step-btn px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left">
-                Знакопостоянство
+              <button type="button" data-highlight="extrema" class="sol-step-btn px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left truncate">
+                ▲ Вершина / Экстремум
+              </button>
+              <button type="button" data-highlight="intervals" class="sol-step-btn col-span-2 px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-950 font-medium text-slate-300 hover:border-cyan-400 transition text-left truncate">
+                ▧ Знакопостоянство: f(x) &gt; 0 / f(x) &lt; 0
               </button>
             </div>
             <button id="sol-reanimate-curve-btn" type="button" class="w-full mt-2 py-1.5 text-xs text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/60 rounded-lg border border-cyan-500/40 font-semibold transition text-center flex items-center justify-center gap-1.5">
@@ -349,15 +389,18 @@
               <span>Плавная рисовка (2.8 сек)</span>
             </button>
           </div>
-
-          <div class="w-full card-neon p-3 text-xs">
-            <span class="font-bold text-slate-400 block mb-1">Условие:</span>
-            <div id="sol-task-question" class="text-slate-200 whitespace-pre-line font-mono text-[11px] leading-relaxed"></div>
-          </div>
         </div>
 
         <!-- Разбор -->
-        <div class="lg:col-span-7 space-y-4">
+        <div id="sol-right-col" class="lg:col-span-7 space-y-4">
+
+          <!-- Блок условия задания (всегда виден) -->
+          <div class="card-neon p-4 text-xs">
+            <span class="font-bold text-amber-300 block mb-1 text-xs flex items-center gap-1.5">
+              <span>📋</span> Условие задания:
+            </span>
+            <div id="sol-task-question" class="text-slate-100 whitespace-pre-line font-sans text-xs leading-relaxed bg-slate-950/80 p-3 rounded-lg border border-slate-800"></div>
+          </div>
           
           <div class="bg-cyan-950/30 border border-cyan-500/30 rounded-xl p-4 text-xs">
             <h4 class="font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
@@ -584,6 +627,9 @@
 
         <!-- Сверка с эталоном и сохранение -->
         <div class="flex items-center gap-2">
+          <button id="wb-toggle-mode-btn" type="button" class="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 text-amber-300 font-semibold text-xs flex items-center gap-1.5 transition" title="Переключить режим: пустая доска для уравнений или координатная сетка Oxy">
+            <span id="wb-mode-icon">📝</span><span id="wb-mode-text">Пустая доска</span>
+          </button>
           <button id="wb-toggle-reference-btn" type="button" class="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/60 text-purple-300 transition font-semibold flex items-center gap-1.5 shadow-neon-purple" title="Показать правильный эталон полупрозрачно прямо поверх вашего чертежа">
             <span>👁️</span><span id="wb-ref-label">Сверить с эталоном</span>
           </button>
@@ -668,9 +714,9 @@
     </div>
   </div>
 
-  <script src="js/math-engine.js?v=7"></script>
-  <script src="js/student-board.js?v=7"></script>
-  <script src="js/task-database.js?v=7"></script>
-  <script src="js/app.js?v=7"></script>
+  <script src="js/math-engine.js"></script>
+  <script src="js/student-board.js"></script>
+  <script src="js/task-database.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
