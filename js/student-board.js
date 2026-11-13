@@ -2,8 +2,9 @@
  * Student Interactive Whiteboard & Graph Drawing Workspace
  * Интерактивная неоновая доска студента для построения графиков и записи решений.
  * Поддерживает мышь, стилус и сенсорные экраны (PointerEvents), сглаживание Безье,
- * инструменты "Перо", "Прямая", "Точка с координатами", "Текст", "Ластик",
- * отмену/повтор действий, сверку с эталоном и сохранение чертежа.
+ * инструменты "Перо", "Прямая", "Точка с координатами", "Текст", "Ластик", "Двигать" (панорамирование),
+ * плавное перемещение 2 пальцами (pinch/pan), возврат в центр, отмену/повтор,
+ * переключение "Пустая доска" / "Сетка Oxy", сверку с эталоном и сохранение чертежа.
  */
 
 class StudentBoardController {
@@ -11,12 +12,31 @@ class StudentBoardController {
     this.modal = null;
     this.canvas = null;
     this.ctx = null;
+    this.surfaceEl = null;
     this.currentTask = null;
     this.currentVariantNum = 1;
     this.graphConfig = null;
+    this.boardMode = 'blank'; // 'blank' или 'oxy'
+
+    // Размеры виртуальной рабочей поверхности (Surface)
+    this.surfaceWidth = 2400;
+    this.surfaceHeight = 2000;
+
+    // Смещение доски (панорамирование)
+    this.panX = 0;
+    this.panY = 0;
+    this.isPanToolDragging = false;
+    this.lastPanX = 0;
+    this.lastPanY = 0;
+
+    // Отслеживание активных указателей (для двухпальцевого перемещения на сенсорных экранах)
+    this.activePointers = new Map();
+    this.isTwoFingerPanning = false;
+    this.lastPanMidX = 0;
+    this.lastPanMidY = 0;
 
     // Инструменты
-    this.currentTool = 'pen'; // 'pen', 'line', 'point', 'text', 'eraser'
+    this.currentTool = 'pen'; // 'pen', 'line', 'point', 'text', 'eraser', 'pan'
     this.currentColor = '#00f0ff';
     this.currentSize = 4;
 
@@ -45,16 +65,47 @@ class StudentBoardController {
   init() {
     this.modal = document.getElementById('whiteboard-modal');
     this.canvas = document.getElementById('wb-draw-canvas');
+    this.surfaceEl = document.getElementById('wb-board-surface');
     if (!this.modal || !this.canvas) return;
 
-    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
-
+    this.initSurface();
     this.initEventListeners();
     this.initTools();
   }
 
+  initSurface() {
+    if (!this.surfaceEl) this.surfaceEl = document.getElementById('wb-board-surface');
+    if (!this.surfaceEl || !this.canvas) return;
+
+    this.surfaceEl.style.width = `${this.surfaceWidth}px`;
+    this.surfaceEl.style.height = `${this.surfaceHeight}px`;
+
+    this.canvas.width = this.surfaceWidth;
+    this.canvas.height = this.surfaceHeight;
+    this.canvas.style.width = `${this.surfaceWidth}px`;
+    this.canvas.style.height = `${this.surfaceHeight}px`;
+
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  centerBoard() {
+    const container = document.getElementById('wb-canvas-container');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    this.panX = Math.round((rect.width - this.surfaceWidth) / 2);
+    this.panY = Math.round((rect.height - this.surfaceHeight) / 2);
+    this.updateSurfaceTransform();
+  }
+
+  updateSurfaceTransform() {
+    if (!this.surfaceEl) this.surfaceEl = document.getElementById('wb-board-surface');
+    if (!this.surfaceEl) return;
+    this.surfaceEl.style.transform = `translate3d(${Math.round(this.panX)}px, ${Math.round(this.panY)}px, 0px)`;
+  }
+
   initTools() {
-    // Инструменты
+    // Инструменты черчения и перемещения
     document.querySelectorAll('.wb-tool-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.wb-tool-btn').forEach(b => {
@@ -64,6 +115,10 @@ class StudentBoardController {
         btn.classList.add('active', 'bg-cyan-500/20', 'text-cyan-300', 'border-cyan-400');
         btn.classList.remove('bg-slate-900', 'text-slate-300', 'border-slate-800');
         this.currentTool = btn.dataset.tool;
+
+        if (this.canvas) {
+          this.canvas.style.cursor = (this.currentTool === 'pan') ? 'grab' : 'crosshair';
+        }
       });
     });
 
@@ -100,12 +155,31 @@ class StudentBoardController {
       });
     });
 
-    // Обработчики выделенного окна ввода текста
+    // Переключение режима доски ("Пустая доска" / "Сетка Oxy")
+    document.getElementById('wb-toggle-mode-btn')?.addEventListener('click', () => {
+      this.boardMode = (this.boardMode === 'oxy') ? 'blank' : 'oxy';
+      this.updateModeButton();
+      this.renderBackgroundGrid();
+      this.renderReferenceLayer();
+      showToast(this.boardMode === 'blank' ? '📝 Режим: Пустая доска' : '📐 Режим: Сетка Oxy', 'info');
+    });
+
+    // Обработчики окна ввода текста
     this.initTextEditorBox();
 
     // Undo / Redo
     document.getElementById('wb-undo-btn')?.addEventListener('click', () => this.undo());
     document.getElementById('wb-redo-btn')?.addEventListener('click', () => this.redo());
+
+    // Возврат доски в центр
+    document.getElementById('wb-center-btn')?.addEventListener('click', () => {
+      this.centerBoard();
+      showToast('🎯 Доска отцентрирована', 'info');
+    });
+    document.getElementById('wb-recenter-pill')?.addEventListener('click', () => {
+      this.centerBoard();
+      showToast('🎯 Доска отцентрирована', 'info');
+    });
 
     // Очистить
     document.getElementById('wb-clear-btn')?.addEventListener('click', () => {
@@ -164,14 +238,13 @@ class StudentBoardController {
 
   initEventListeners() {
     const canvas = this.canvas;
+    const container = document.getElementById('wb-canvas-container');
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = (this.logicalWidth || rect.width) / (rect.width || 1);
-      const scaleY = (this.logicalHeight || rect.height) / (rect.height || 1);
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
         clientX: e.clientX,
         clientY: e.clientY
       };
@@ -180,9 +253,33 @@ class StudentBoardController {
     // Pointer Down
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      canvas.setPointerCapture(e.pointerId);
-      const pos = getPos(e);
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+      // Если 2 пальца: мгновенно переключаемся в режим двухпальцевого панорамирования!
+      if (this.activePointers.size >= 2) {
+        if (this.isDrawing) {
+          this.isDrawing = false;
+          this.strokePoints = [];
+        }
+        this.isTwoFingerPanning = true;
+        const pts = Array.from(this.activePointers.values());
+        this.lastPanMidX = (pts[0].x + pts[1].x) / 2;
+        this.lastPanMidY = (pts[0].y + pts[1].y) / 2;
+        return;
+      }
+
+      // Если выбран инструмент "Двигать" (pan) или средняя кнопка мыши:
+      if (this.currentTool === 'pan' || e.button === 1) {
+        this.isPanToolDragging = true;
+        this.lastPanX = e.clientX;
+        this.lastPanY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+
+      // Иначе: обычное рисование выбранным инструментом
+      const pos = getPos(e);
       this.isDrawing = true;
       this.startX = pos.x;
       this.startY = pos.y;
@@ -201,16 +298,48 @@ class StudentBoardController {
         this.placeMathPoint(pos.x, pos.y);
         this.isDrawing = false;
       } else if (this.currentTool === 'text') {
-        this.openTextEditor(pos.x, pos.y);
+        this.openTextEditor(pos.x, pos.y, e.clientX, e.clientY);
         this.isDrawing = false;
       }
     });
 
     // Pointer Move
     canvas.addEventListener('pointermove', (e) => {
+      if (this.activePointers.has(e.pointerId)) {
+        this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
       const pos = getPos(e);
       this.updateCoordsTooltip(pos.x, pos.y);
 
+      // 1. Двухпальцевое перемещение (Pinch / Pan с двух пальцев)
+      if (this.activePointers.size >= 2) {
+        const pts = Array.from(this.activePointers.values());
+        const midX = (pts[0].x + pts[1].x) / 2;
+        const midY = (pts[0].y + pts[1].y) / 2;
+        const dx = midX - this.lastPanMidX;
+        const dy = midY - this.lastPanMidY;
+        this.panX += dx;
+        this.panY += dy;
+        this.lastPanMidX = midX;
+        this.lastPanMidY = midY;
+        this.updateSurfaceTransform();
+        return;
+      }
+
+      // 2. Однопальцевое перемещение инструментом "Двигать" (pan)
+      if (this.isPanToolDragging) {
+        const dx = e.clientX - this.lastPanX;
+        const dy = e.clientY - this.lastPanY;
+        this.panX += dx;
+        this.panY += dy;
+        this.lastPanX = e.clientX;
+        this.lastPanY = e.clientY;
+        this.updateSurfaceTransform();
+        return;
+      }
+
+      // 3. Рисование активным инструментом
       if (!this.isDrawing) return;
 
       if (this.currentTool === 'pen') {
@@ -220,32 +349,50 @@ class StudentBoardController {
         this.eraseAt(pos.x, pos.y);
       } else if (this.currentTool === 'line' && this.previewSnapshot) {
         this.ctx.putImageData(this.previewSnapshot, 0, 0);
-        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         this.drawLine(this.startX, this.startY, pos.x, pos.y, true);
       }
     });
 
     // Pointer Up & Cancel
-    const endDrawing = (e) => {
+    const endInteraction = (e) => {
+      this.activePointers.delete(e.pointerId);
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+
+      if (this.activePointers.size < 2) {
+        this.isTwoFingerPanning = false;
+      }
+
+      if (this.isPanToolDragging) {
+        this.isPanToolDragging = false;
+        canvas.style.cursor = (this.currentTool === 'pan') ? 'grab' : 'crosshair';
+      }
+
       if (!this.isDrawing) return;
       this.isDrawing = false;
-      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
 
       if (this.currentTool === 'line') {
         const pos = getPos(e);
         if (this.previewSnapshot) {
           this.ctx.putImageData(this.previewSnapshot, 0, 0);
           this.previewSnapshot = null;
-    this.pendingTextX = null;
-    this.pendingTextY = null;
         }
         this.drawLine(this.startX, this.startY, pos.x, pos.y, false);
       }
       this.strokePoints = [];
     };
 
-    canvas.addEventListener('pointerup', endDrawing);
-    canvas.addEventListener('pointercancel', endDrawing);
+    canvas.addEventListener('pointerup', endInteraction);
+    canvas.addEventListener('pointercancel', endInteraction);
+
+    // Колесо мыши / трекпад: плавное перемещение доски
+    if (container) {
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        this.panX -= e.deltaX;
+        this.panY -= e.deltaY;
+        this.updateSurfaceTransform();
+      }, { passive: false });
+    }
   }
 
   open(task = null, variantNum = 1) {
@@ -279,7 +426,7 @@ class StudentBoardController {
     const varData = task.variants[(variantNum - 1) % task.variants.length];
     this.graphConfig = varData.graphConfig;
 
-    // Автоматический выбор режима: для уравнений и кратких ответов - СТРОГО ПУСТАЯ ДОСКА!
+    // Автоматический выбор режима: для кратких ответов и уравнений — СТРОГО ПУСТАЯ ДОСКА!
     const isShortAnswer = task ? (task.taskType === 'short_answer') : false;
     this.boardMode = isShortAnswer ? 'blank' : 'oxy';
     this.updateModeButton();
@@ -304,9 +451,10 @@ class StudentBoardController {
 
     this.modal.classList.remove('hidden');
 
-    // Настройка размеров Canvas с учетом Retina Display
+    // Настройка поверхности и центрирование доски
     setTimeout(() => {
-      this.resizeCanvas();
+      this.initSurface();
+      this.centerBoard();
       this.renderBackgroundGrid();
       this.renderReferenceLayer();
       this.loadSavedDrawing();
@@ -318,25 +466,6 @@ class StudentBoardController {
     this.currentTask = null;
   }
 
-  resizeCanvas() {
-    const container = document.getElementById('wb-canvas-container');
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-
-    this.logicalWidth = rect.width;
-    this.logicalHeight = rect.height;
-    this.dpr = dpr;
-
-    this.canvas.width = Math.round(rect.width * dpr);
-    this.canvas.height = Math.round(rect.height * dpr);
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height}px`;
-
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
   updateModeButton() {
     const btn = document.getElementById('wb-toggle-mode-btn');
     const icon = document.getElementById('wb-mode-icon');
@@ -346,11 +475,11 @@ class StudentBoardController {
     if (this.boardMode === 'blank') {
       if (icon) icon.textContent = '📝';
       if (text) text.textContent = 'Пустая доска';
-      btn.className = 'px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 text-amber-300 font-semibold text-xs flex items-center gap-1.5 transition';
+      btn.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 text-amber-300 font-semibold text-xs flex items-center gap-1.5 transition';
     } else {
       if (icon) icon.textContent = '📐';
       if (text) text.textContent = 'Сетка Oxy';
-      btn.className = 'px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 font-semibold text-xs flex items-center gap-1.5 transition';
+      btn.className = 'px-2.5 sm:px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 font-semibold text-xs flex items-center gap-1.5 transition';
     }
   }
 
@@ -360,8 +489,7 @@ class StudentBoardController {
 
     if (this.boardMode === 'blank' || (this.currentTask && this.currentTask.taskType === 'short_answer' && this.boardMode !== 'oxy')) {
       // 100% ПУСТАЯ ДОСКА ДЛЯ УРАВНЕНИЙ И ВЫЧИСЛЕНИЙ:
-      // Никаких осей координат Oxy, никаких графиков функций и кривых!
-      // Чистая поверхность с едва заметной деликатной тетрадной клеткой:
+      // Бесшовная тетрадная клетка 28px по всей поверхности 2400x2000
       gridLayer.innerHTML = `
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -377,17 +505,21 @@ class StudentBoardController {
 
     if (!this.graphConfig) return;
 
-    // Для заданий на построение графиков функций: сетка Oxy
+    // Для заданий на построение графиков: сетка Oxy 1600x1200 по центру поверхности
     const svg = GraphRenderer.renderSVG({
       ...this.graphConfig,
-      width: Math.round(this.logicalWidth),
-      height: Math.round(this.logicalHeight),
+      width: 1600,
+      height: 1200,
       theme: 'neon',
       animated: false,
       blankGrid: true
     });
 
-    gridLayer.innerHTML = svg;
+    gridLayer.innerHTML = `
+      <div style="position: absolute; left: 400px; top: 400px; width: 1600px; height: 1200px;">
+        ${svg}
+      </div>
+    `;
   }
 
   renderReferenceLayer() {
@@ -396,7 +528,6 @@ class StudentBoardController {
     if (!refLayer) return;
 
     if (this.boardMode === 'blank' || (this.currentTask && this.currentTask.taskType === 'short_answer' && this.boardMode !== 'oxy')) {
-      // Для уравнений и кратких ответов нет графика-эталона
       refLayer.innerHTML = '';
       refLayer.style.opacity = '0';
       if (toggleBtn) toggleBtn.classList.add('hidden');
@@ -408,17 +539,21 @@ class StudentBoardController {
 
     const svg = GraphRenderer.renderSVG({
       ...this.graphConfig,
-      width: Math.round(this.logicalWidth),
-      height: Math.round(this.logicalHeight),
+      width: 1600,
+      height: 1200,
       theme: 'neon',
       animated: false
     });
 
-    refLayer.innerHTML = svg;
+    refLayer.innerHTML = `
+      <div style="position: absolute; left: 400px; top: 400px; width: 1600px; height: 1200px;">
+        ${svg}
+      </div>
+    `;
     this.isReferenceVisible = false;
     refLayer.style.opacity = '0';
     const label = document.getElementById('wb-ref-label');
-    if (label) label.textContent = 'Сверить с эталоном';
+    if (label) label.textContent = 'Эталон';
   }
 
   toggleReference() {
@@ -429,42 +564,52 @@ class StudentBoardController {
     this.isReferenceVisible = !this.isReferenceVisible;
     if (this.isReferenceVisible) {
       refLayer.style.opacity = '0.65';
-      if (label) label.textContent = 'Скрыть эталон';
+      if (label) label.textContent = 'Скрыть';
       showToast('👁️ Эталонный график наложен полупрозрачно для проверки', 'info');
     } else {
       refLayer.style.opacity = '0';
-      if (label) label.textContent = 'Сверить с эталоном';
+      if (label) label.textContent = 'Эталон';
     }
   }
 
-  // Математические преобразования координат (пиксели <-> math X, Y)
+  // Математические преобразования координат (пиксели поверхности <-> math X, Y)
   pixelToMath(px, py) {
-    const cfg = this.graphConfig;
+    const cfg = this.graphConfig || { xMin: -6, xMax: 6, yMin: -6, yMax: 6 };
+    // График Oxy находится в координатах: left: 400, top: 400, width: 1600, height: 1200
     const padding = { top: 24, right: 24, bottom: 24, left: 24 };
-    const innerW = this.logicalWidth - padding.left - padding.right;
-    const innerH = this.logicalHeight - padding.top - padding.bottom;
+    const innerW = 1600 - padding.left - padding.right;
+    const innerH = 1200 - padding.top - padding.bottom;
 
-    const mathX = cfg.xMin + ((px - padding.left) / innerW) * (cfg.xMax - cfg.xMin);
-    const mathY = cfg.yMax - ((py - padding.top) / innerH) * (cfg.yMax - cfg.yMin);
+    const relX = px - 400 - padding.left;
+    const relY = py - 400 - padding.top;
+
+    const mathX = cfg.xMin + (relX / innerW) * (cfg.xMax - cfg.xMin);
+    const mathY = cfg.yMax - (relY / innerH) * (cfg.yMax - cfg.yMin);
 
     return { x: mathX, y: mathY };
   }
 
   mathToPixel(mx, my) {
-    const cfg = this.graphConfig;
+    const cfg = this.graphConfig || { xMin: -6, xMax: 6, yMin: -6, yMax: 6 };
     const padding = { top: 24, right: 24, bottom: 24, left: 24 };
-    const innerW = this.logicalWidth - padding.left - padding.right;
-    const innerH = this.logicalHeight - padding.top - padding.bottom;
+    const innerW = 1600 - padding.left - padding.right;
+    const innerH = 1200 - padding.top - padding.bottom;
 
-    const px = padding.left + ((mx - cfg.xMin) / (cfg.xMax - cfg.xMin)) * innerW;
-    const py = padding.top + ((cfg.yMax - my) / (cfg.yMax - cfg.yMin)) * innerH;
+    const px = 400 + padding.left + ((mx - cfg.xMin) / (cfg.xMax - cfg.xMin)) * innerW;
+    const py = 400 + padding.top + ((cfg.yMax - my) / (cfg.yMax - cfg.yMin)) * innerH;
 
     return { x: px, y: py };
   }
 
   updateCoordsTooltip(px, py) {
     const tooltip = document.getElementById('wb-coords-tooltip');
-    if (!tooltip || !this.graphConfig) return;
+    if (!tooltip) return;
+
+    if (!this.graphConfig || this.boardMode === 'blank') {
+      tooltip.textContent = `x: ${Math.round(px)}, y: ${Math.round(py)}`;
+      tooltip.style.opacity = '0.7';
+      return;
+    }
 
     const math = this.pixelToMath(px, py);
     const cfg = this.graphConfig;
@@ -473,11 +618,12 @@ class StudentBoardController {
       tooltip.textContent = `x: ${math.x.toFixed(2)}, y: ${math.y.toFixed(2)}`;
       tooltip.style.opacity = '1';
     } else {
+      tooltip.textContent = `x: ${math.x.toFixed(1)}, y: ${math.y.toFixed(1)}`;
       tooltip.style.opacity = '0.4';
     }
   }
 
-  // Отрисовка сглаженного штриха (квадратичные кривые Безье)
+  // Отрисовка сглаженного штриха пером (кривые Безье)
   drawSmoothStroke() {
     const pts = this.strokePoints;
     if (pts.length < 2) return;
@@ -534,24 +680,20 @@ class StudentBoardController {
     ctx.restore();
   }
 
-  // Установка математической точки с координатами и точным попаданием курсора
+  // Установка точки с привязкой и координатами
   placeMathPoint(clickX, clickY) {
     const math = this.pixelToMath(clickX, clickY);
-    
-    // Проверяем, близко ли клик к узлу координатной сетки (шаг 0.5)
     const snapX = Math.round(math.x * 2) / 2;
     const snapY = Math.round(math.y * 2) / 2;
     const snappedPixel = this.mathToPixel(snapX, snapY);
     const dist = Math.hypot(snappedPixel.x - clickX, snappedPixel.y - clickY);
 
-    // Если клик близко к узлу сетки (до 16px) — мягко привязываем к узлу,
-    // иначе ставим точку точно в позицию клика курсора без смещения!
     let targetX = clickX;
     let targetY = clickY;
     let labelMathX = Number(math.x.toFixed(1));
     let labelMathY = Number(math.y.toFixed(1));
 
-    if (dist < 16) {
+    if (dist < 18) {
       targetX = snappedPixel.x;
       targetY = snappedPixel.y;
       labelMathX = snapX;
@@ -562,7 +704,6 @@ class StudentBoardController {
     const ctx = this.ctx;
 
     ctx.save();
-    // Светящееся кольцо
     ctx.shadowColor = this.currentColor;
     ctx.shadowBlur = 12;
 
@@ -571,13 +712,12 @@ class StudentBoardController {
     ctx.arc(pixel.x, pixel.y, Math.max(5, this.currentSize * 1.2), 0, Math.PI * 2);
     ctx.fill();
 
-    // Белый центр
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(pixel.x, pixel.y, Math.max(2, this.currentSize * 0.4), 0, Math.PI * 2);
     ctx.fill();
 
-    // Подпись координат (например, "(2; -3)")
+    // Подпись координат
     const label = `(${labelMathX}; ${labelMathY})`;
     ctx.font = 'bold 12px "JetBrains Mono", monospace';
     ctx.fillStyle = '#ffffff';
@@ -585,21 +725,6 @@ class StudentBoardController {
     ctx.shadowBlur = 4;
     ctx.fillText(label, pixel.x + 8, pixel.y - 8);
 
-    ctx.restore();
-  }
-
-  // Ввод текстовой заметки прямо на доске
-  placeTextNote(x, y) {
-    const text = prompt('Введите математическое пояснение или формулу (например, вершина параболы (1; -4)):');
-    if (!text || !text.trim()) return;
-
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.font = `${Math.max(13, this.currentSize * 3)}px "JetBrains Mono", monospace`;
-    ctx.fillStyle = this.currentColor;
-    ctx.shadowColor = this.currentColor;
-    ctx.shadowBlur = 8;
-    ctx.fillText(text.trim(), x, y);
     ctx.restore();
   }
 
@@ -614,11 +739,7 @@ class StudentBoardController {
   }
 
   clearCanvas() {
-    this.ctx.save();
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.restore();
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
   // История Undo / Redo
@@ -656,7 +777,7 @@ class StudentBoardController {
     const img = new Image();
     img.onload = () => {
       this.clearCanvas();
-      this.ctx.drawImage(img, 0, 0, this.logicalWidth, this.logicalHeight);
+      this.ctx.drawImage(img, 0, 0);
     };
     img.src = dataUrl;
   }
@@ -698,7 +819,6 @@ class StudentBoardController {
     }
   }
 
-
   setSize(size) {
     this.currentSize = Math.max(1, Math.min(32, size));
     const slider = document.getElementById('wb-size-slider');
@@ -726,6 +846,7 @@ class StudentBoardController {
     });
   }
 
+  // Окно ввода текста на доске
   initTextEditorBox() {
     const confirmBtn = document.getElementById('wb-text-confirm-btn');
     const cancelBtn = document.getElementById('wb-text-cancel-btn');
@@ -736,7 +857,6 @@ class StudentBoardController {
     if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeTextEditor());
     if (cancelBtn2) cancelBtn2.addEventListener('click', () => this.closeTextEditor());
 
-    // Вставка математических символов в текстовое поле в 1 клик
     document.querySelectorAll('.wb-math-sym').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!input) return;
@@ -762,21 +882,28 @@ class StudentBoardController {
     }
   }
 
-  openTextEditor(x, y) {
+  openTextEditor(canvasX, canvasY, screenX, screenY) {
     const box = document.getElementById('wb-text-editor-box');
+    const container = document.getElementById('wb-canvas-container');
     const input = document.getElementById('wb-text-input');
-    if (!box || !input) return;
+    if (!box || !container || !input) return;
 
-    this.pendingTextX = x;
-    this.pendingTextY = y;
+    this.pendingTextX = canvasX;
+    this.pendingTextY = canvasY;
 
+    const containerRect = container.getBoundingClientRect();
     const boxWidth = 320;
     const boxHeight = 150;
-    const posX = Math.max(10, Math.min(x, this.logicalWidth - boxWidth - 10));
-    const posY = Math.max(10, Math.min(y, this.logicalHeight - boxHeight - 10));
 
-    box.style.left = `${posX}px`;
-    box.style.top = `${posY}px`;
+    // Позиционируем окно ввода относительно видимого контейнера
+    let left = screenX ? (screenX - containerRect.left) : (canvasX + this.panX);
+    let top = screenY ? (screenY - containerRect.top) : (canvasY + this.panY);
+
+    left = Math.max(10, Math.min(left, containerRect.width - boxWidth - 10));
+    top = Math.max(10, Math.min(top, containerRect.height - boxHeight - 10));
+
+    box.style.left = `${left}px`;
+    box.style.top = `${top}px`;
     box.classList.remove('hidden');
 
     input.value = '';
